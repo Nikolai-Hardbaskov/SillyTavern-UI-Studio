@@ -16,7 +16,7 @@ const NAV_META = {
 };
 const DEFAULTS = {
     navigation: {
-        hideTopBar: true, triggerTop: 43, triggerSide: 'left',
+        hideTopBar: false, hideTopBarConfirmed: false, triggerTop: 43, triggerSide: 'left',
         triggerWidth: 35, triggerHeight: 77,
         triggerColor: '#4c4956', triggerIconColor: '#f4edf9', triggerOpacity: 0.92,
         autoFade: true, fadeOpacity: 0.48, fadeDelay: 5,
@@ -90,7 +90,9 @@ function cleanDecorations(value) {
 function normalize(raw, includeProfiles = true) {
     const data = structuredClone(DEFAULTS);
     if (!raw || typeof raw !== 'object') return data;
-    data.navigation.hideTopBar = raw.navigation?.hideTopBar !== false;
+    // v0.2.0 upgrades must not hide native controls until the user explicitly opts in.
+    data.navigation.hideTopBarConfirmed = raw.navigation?.hideTopBarConfirmed === true;
+    data.navigation.hideTopBar = raw.navigation?.hideTopBar === true && data.navigation.hideTopBarConfirmed;
     data.navigation.triggerTop = clamp(raw.navigation?.triggerTop, 8, 90, 43);
     const n = raw.navigation || {};
     if (['left', 'right'].includes(n.triggerSide)) data.navigation.triggerSide = n.triggerSide;
@@ -437,13 +439,13 @@ function renderTab() {
             html = `<h3>Мои темы</h3><p>Сохраняй оформление и быстро меняй его. Можно перенести настройки на другой телефон.</p><div class="stui-save-row"><input type="text" id="stui-profile-name" maxlength="40" placeholder="Название темы"><button type="button" data-action="save-profile">Сохранить</button></div><div id="stui-profile-list"></div><div class="stui-action-row"><button type="button" data-action="export">Экспорт JSON</button><button type="button" data-action="import">Импорт JSON</button></div><input id="stui-import-file" type="file" accept=".json,application/json" hidden>`;
             break;
         case 'general':
-            html = `<h3>Навигация</h3>${field('Скрыть стандартные верхние иконки', 'navigation.hideTopBar', 'checkbox')}${field('Сторона стрелки', 'navigation.triggerSide', 'select', {values:[['left','Слева'],['right','Справа']]})}${field('Положение по высоте', 'navigation.triggerTop', 'range', {min:8,max:90,unit:' %'})}
+            html = `<h3>Навигация</h3><p class="stui-hint">Безопасный старт: стандартное верхнее меню остаётся видимым, пока ты сама не включишь его скрытие. Сперва проверь стрелку.</p>${field('Скрыть стандартные верхние иконки после проверки стрелки', 'navigation.hideTopBar', 'checkbox')}${field('Сторона стрелки', 'navigation.triggerSide', 'select', {values:[['left','Слева'],['right','Справа']]})}${field('Положение по высоте', 'navigation.triggerTop', 'range', {min:8,max:90,unit:' %'})}
               <p class="stui-hint">Стрелку можно перетаскивать пальцем вверх и вниз. При смене стороны она остаётся полностью видимой.</p>
               <h3>Внешний вид стрелки</h3>${field('Ширина стрелки', 'navigation.triggerWidth', 'range', {min:30,max:74,step:1,unit:' px'})}${field('Высота стрелки', 'navigation.triggerHeight', 'range', {min:55,max:120,step:1,unit:' px'})}${field('Цвет подложки', 'navigation.triggerColor', 'color')}${field('Цвет значка', 'navigation.triggerIconColor', 'color')}${field('Непрозрачность стрелки', 'navigation.triggerOpacity', 'range', {min:.3,max:1,step:.05})}
               <h3>Автоматическое затухание</h3>${field('Включить затухание при бездействии', 'navigation.autoFade', 'checkbox')}${field('Прозрачность после затухания', 'navigation.fadeOpacity', 'range', {min:.2,max:.9,step:.05})}${field('Задержка перед затуханием', 'navigation.fadeDelay', 'range', {min:2,max:15,step:1,unit:' с'})}
               <p class="stui-hint">При касании стрелка вновь становится яркой и открывает меню. Затухание не прячет кнопку полностью: её всегда можно найти. Выключи эту функцию, если предпочитаешь постоянную яркость.</p>
               <h3>Восстановление</h3><div class="stui-action-row"><button type="button" data-action="reset-style" class="stui-danger">Сбросить оформление</button><button type="button" data-action="show-native">Показать верхнее меню</button></div>
-              <p class="stui-hint">Если внешний вид конфликтует с другой темой, сначала покажи штатную панель, затем отключи UI Studio в Extensions.</p>`;
+              <p class="stui-hint">Если стрелка исчезла и верхнее меню недоступно, добавь ?stui_safe=1 к адресу SillyTavern и перезагрузи страницу. Это временно отключит UI Studio без удаления настроек.</p>`;
             break;
     }
     elements.tabContent.innerHTML = html;
@@ -462,6 +464,8 @@ function bindStudio() {
         if (!input) return;
         const [section, name] = input.dataset.field.split('.');
         if (!Object.hasOwn(DEFAULTS[section] || {}, name)) return;
+        // A deliberate toggle in Theme Studio unlocks toolbar hiding for future visits.
+        if (section === 'navigation' && name === 'hideTopBar' && input.checked) settings.navigation.hideTopBarConfirmed = true;
         settings[section][name] = input.type === 'checkbox' ? input.checked : input.type === 'range' ? Number(input.value) : input.value;
         const output = elements.tabContent.querySelector(`output[for="${input.id}"]`);
         if (output) output.textContent = `${input.value}${input.dataset.field === 'navigation.triggerTop' ? ' %' : name === 'fadeDelay' ? ' с' : ['modelSize','userSize','cardBorderWidth','cardRadius','cardPadding','avatarSize','avatarBorderWidth','iconSize','triggerWidth','triggerHeight'].includes(name) ? ' px' : ''}`;
@@ -702,6 +706,11 @@ function dispose() {
     started = false;
 }
 function initialize(attempt = 0) {
+    // Emergency bypass: reload with ?stui_safe=1 to restore the native toolbar.
+    if (new URLSearchParams(window.location.search).get('stui_safe') === '1') {
+        console.info('[UI Studio] Safe mode active; UI Studio was not initialized.');
+        return;
+    }
     if (started) return;
     holder = document.querySelector('#top-settings-holder');
     if (!holder || !window.SillyTavern?.getContext) {
