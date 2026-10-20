@@ -39,7 +39,8 @@ body.stui-active #stui-decorations button {
 }
 body.stui-active #stui-trigger {
     position: fixed;
-    top: 43%;
+    top: 43%; /* Fallback for browsers without dynamic viewport units. */
+    top: 43dvh;
     left: 0;
     right: auto;
     z-index: 6200;

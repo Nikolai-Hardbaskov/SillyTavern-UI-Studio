@@ -314,6 +314,18 @@ function closeAll() {
     closeMenu(); closeStudio();
     if (focusBefore && focusBefore.isConnected) focusBefore.focus();
 }
+// Use viewport units instead of percentages of a possibly transformed theme container.
+function positionTrigger() {
+    const n = settings.navigation;
+    if (window.CSS?.supports?.('top', '1dvh')) {
+        const visibleTop = `clamp(8px, ${n.triggerTop}dvh, calc(100dvh - ${n.triggerHeight}px - env(safe-area-inset-bottom, 0px) - 8px))`;
+        elements.trigger.style.setProperty('top', visibleTop, 'important');
+    } else {
+        const height = window.visualViewport?.height || window.innerHeight;
+        const pixelTop = Math.max(8, Math.min(n.triggerTop / 100 * height, height - n.triggerHeight - 8));
+        elements.trigger.style.setProperty('top', `${Math.round(pixelTop)}px`, 'important');
+    }
+}
 function bindTriggerDrag() {
     let start = null;
     let suppressNextClick = false;
@@ -334,7 +346,7 @@ function bindTriggerDrag() {
         if (Math.abs(event.clientY - start.y) > 7) start.moved = true;
         if (!start.moved) return;
         settings.navigation.triggerTop = clamp(start.top + ((event.clientY - start.y) / window.innerHeight * 100), 8, 90, 43);
-        elements.trigger.style.top = `${settings.navigation.triggerTop}%`;
+        positionTrigger();
     });
     elements.trigger.addEventListener('pointerup', event => {
         if (!start || event.pointerId !== start.pointer) return;
@@ -375,7 +387,7 @@ function applyTheme() {
     document.body.dataset.stuiAvatarPosition = s.avatarPosition;
     const n = settings.navigation;
     document.body.dataset.stuiTriggerSide = n.triggerSide;
-    elements.trigger.style.top = `${settings.navigation.triggerTop}%`;
+    positionTrigger();
     root.style.setProperty('--stui-trigger-width', `${n.triggerWidth}px`);
     root.style.setProperty('--stui-trigger-height', `${n.triggerHeight}px`);
     root.style.setProperty('--stui-trigger-background', n.triggerColor);
