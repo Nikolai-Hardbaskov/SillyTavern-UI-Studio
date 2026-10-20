@@ -12,17 +12,17 @@ globalThis.previewForTab = tab => {
     settings = normalize({ style: { modelSize: 27, userSize: 19, cardBorder: 'dashed' } });
     chosenTab = tab;
     elements.preview = { hidden: false };
-    elements.tabContent = { innerHTML: '' };
+    elements.tabContent = { innerHTML: '', querySelector: () => null };
     renderTab();
     return { visible: !elements.preview.hidden, html: elements.tabContent.innerHTML };
 };`;
 const sandbox = { URL, structuredClone, console };
 vm.runInNewContext(code, sandbox, { filename: 'index.js' });
 
-for (const tab of ['text', 'messages', 'avatars']) {
+for (const tab of ['text', 'messages', 'avatars', 'profiles']) {
     const result = sandbox.previewForTab(tab);
     assert.equal(result.visible, true, `Preview must be visible on ${tab}`);
-    assert.ok(result.html.includes('data-field="style.'), 'Editable fields remain available');
+    if (tab !== 'profiles') assert.ok(result.html.includes('data-field="style.'), 'Editable fields remain available');
 }
 assert.equal(sandbox.previewForTab('general').visible, false);
 

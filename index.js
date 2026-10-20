@@ -257,6 +257,9 @@ let navItems = [];
 let focusBefore = null;
 let dragState = null;
 let fadeTimer = null;
+let studioBaseline = null;
+let studioDirty = false;
+let studioSession = 0;
 const elements = {};
 
 function clamp(value, min, max, fallback) {
@@ -381,6 +384,37 @@ function persist() {
 }
 function persistAndApply() { persist(); applyTheme(); }
 
+// Changes made inside Theme Studio are a private draft until explicitly saved.
+// Keep the saved object in extensionSettings untouched throughout the session.
+function stageSettings() {
+    settings = normalize(settings);
+    studioDirty = true;
+    renderDraftPreview();
+    updateDraftStatus();
+}
+function updateDraftStatus() {
+    const status = elements.studio?.querySelector('#stui-draft-status');
+    const save = elements.studio?.querySelector('#stui-save-changes');
+    if (status) status.textContent = studioDirty ? 'Не сохранено · только предпросмотр' : 'Все изменения сохранены';
+    if (save) save.disabled = !studioDirty;
+}
+function saveStudioChanges() {
+    if (!studioBaseline || !studioDirty) return;
+    settings = normalize(settings);
+    persistAndApply();
+    syncNav();
+    studioBaseline = structuredClone(settings);
+    studioDirty = false;
+    updateDraftStatus();
+}
+function discardStudioChanges() {
+    if (!studioBaseline) return;
+    settings = studioBaseline;
+    studioBaseline = null;
+    studioDirty = false;
+    updateDraftStatus();
+}
+
 function makeIcon(icon, override) {
     if (override?.image) {
         const img = document.createElement('img');
@@ -491,7 +525,13 @@ function createUI() {
         </div>
       </section>
       <div id="stui-tab-content" class="stui-scroll stui-settings"></div>
-      <footer class="stui-footer"><span>Изменения видны сразу в чате</span><button type="button" id="stui-back-menu">Меню</button></footer>`;
+      <footer class="stui-footer">
+        <span id="stui-draft-status" role="status" aria-live="polite">Все изменения сохранены</span>
+        <div class="stui-footer-actions">
+          <button type="button" id="stui-cancel-changes">Отмена</button>
+          <button type="button" id="stui-save-changes" disabled>Сохранить изменения</button>
+        </div>
+      </footer>`;
     elements.tabs = elements.studio.querySelector('#stui-tabs');
     elements.preview = elements.studio.querySelector('#stui-preview');
     elements.tabContent = elements.studio.querySelector('#stui-tab-content');
@@ -513,7 +553,11 @@ function createUI() {
         event.currentTarget.setAttribute('aria-expanded', String(!collapsed));
         event.currentTarget.textContent = collapsed ? 'Развернуть' : 'Свернуть';
     });
-    elements.studio.querySelector('#stui-back-menu').addEventListener('click', () => { closeStudio(); openMenu(); });
+    elements.studio.querySelector('#stui-save-changes').addEventListener('click', saveStudioChanges);
+    elements.studio.querySelector('#stui-cancel-changes').addEventListener('click', () => {
+        discardStudioChanges();
+        closeStudio();
+    });
     document.addEventListener('keydown', onKeyDown);
     bindStudio();
     bindTriggerDrag();
@@ -552,7 +596,7 @@ function scheduleFade() {
 }
 function openMenu() {
     focusBefore = document.activeElement;
-    closeStudio();
+    if (closeStudio() === false) return;
     syncNav();
     elements.menu.classList.add('stui-open');
     elements.menu.setAttribute('aria-hidden', 'false');
@@ -569,20 +613,32 @@ function closeMenu() {
 function openStudio() {
     focusBefore = document.activeElement;
     closeMenu();
+    // Clone before editing: no draft mutation may leak into SillyTavern's saved settings.
+    studioBaseline = structuredClone(settings);
+    settings = structuredClone(studioBaseline);
+    studioDirty = false;
+    studioSession += 1;
     elements.studio.classList.add('stui-open');
     elements.studio.setAttribute('aria-hidden', 'false');
     renderTabs();
     renderTab();
+    renderDraftPreview();
+    updateDraftStatus();
     updateScrim();
     elements.studio.querySelector('#stui-studio-close').focus();
 }
 function closeStudio() {
+    if (studioBaseline && studioDirty && !confirm('Закрыть Theme Studio без сохранения? Все изменения черновика будут потеряны.')) return false;
+    if (studioBaseline) studioSession += 1;
+    discardStudioChanges();
     elements.studio.classList.remove('stui-open');
     elements.studio.setAttribute('aria-hidden', 'true');
     updateScrim();
+    return true;
 }
 function closeAll() {
-    closeMenu(); closeStudio();
+    if (closeStudio() === false) return;
+    closeMenu();
     if (focusBefore && focusBefore.isConnected) focusBefore.focus();
 }
 // Use viewport units instead of percentages of a possibly transformed theme container.
@@ -633,11 +689,8 @@ function bindTriggerDrag() {
     elements.trigger.addEventListener('pointercancel', () => { start = null; scheduleFade(); });
 }
 
-function applyTheme() {
-    if (!settings) return;
-    const root = document.documentElement;
-    const s = settings.style;
-    const vars = {
+function styleVariables(s) {
+    return {
         '--stui-model-font': s.modelFont === 'inherit' ? 'inherit' : `"${s.modelFont}"`,
         '--stui-user-font': s.userFont === 'inherit' ? 'inherit' : `"${s.userFont}"`,
         '--stui-model-size': `${s.modelSize}px`, '--stui-user-size': `${s.userSize}px`,
@@ -653,7 +706,19 @@ function applyTheme() {
         '--stui-chat-overlay': hexRgba(s.chatColor, s.chatAlpha),
         '--stui-icon-color': s.iconColor, '--stui-icon-size': `${s.iconSize}px`,
     };
-    for (const [name, value] of Object.entries(vars)) root.style.setProperty(name, value);
+}
+function renderDraftPreview() {
+    if (!elements.preview) return;
+    for (const [name, value] of Object.entries(styleVariables(settings.style))) {
+        elements.preview.style.setProperty(name, value);
+    }
+    elements.preview.dataset.stuiAvatarPosition = settings.style.avatarPosition;
+}
+function applyTheme() {
+    if (!settings) return;
+    const root = document.documentElement;
+    const s = settings.style;
+    for (const [name, value] of Object.entries(styleVariables(s))) root.style.setProperty(name, value);
     document.body.classList.toggle('stui-hide-top', settings.navigation.hideTopBar);
     document.body.dataset.stuiAvatarPosition = s.avatarPosition;
     const n = settings.navigation;
@@ -697,9 +762,9 @@ function renderTabs() {
     }
 }
 function renderTab() {
-    // Keep the sample visible above the scroll area while editing text, cards, and avatars.
-    // All its styles use the same CSS variables as the real chat and update via applyTheme().
-    if (elements.preview) elements.preview.hidden = !['text', 'messages', 'avatars'].includes(chosenTab);
+    // Keep the sample visible above the scroll area while editing text, cards, avatars, and presets.
+    // Its CSS variables are overridden on the sample only until the user saves.
+    if (elements.preview) elements.preview.hidden = !['text', 'messages', 'avatars', 'profiles'].includes(chosenTab);
     const fontOptions = FONTS.map(name => [name, name === 'inherit' ? 'Как в SillyTavern' : name]);
     let html = '';
     switch (chosenTab) {
@@ -726,10 +791,10 @@ function renderTab() {
               <p class="stui-hint">Выбери изображение с прозрачным фоном до 3 МБ. Оно уменьшится для сохранения в настройках. Фон автоматически не удаляется.</p>
               <h3>Мои украшения</h3><p id="stui-decoration-count" aria-live="polite"></p>
               <div id="stui-decoration-list"></div>
-              <p class="stui-hint">После закрытия Theme Studio перемещай украшения пальцем. Их размер меняется ниже. Украшения не передаются модели.</p>`;
+              <p class="stui-hint">Чтобы украшения появились в чате, нажми «Сохранить изменения». После этого их можно перемещать пальцем. Украшения не передаются модели.</p>`;
             break;
         case 'profiles':
-            html = `<h3>Мои темы</h3><p>Сохраняй оформление и быстро меняй его. Можно перенести настройки на другой телефон.</p><div class="stui-save-row"><input type="text" id="stui-profile-name" maxlength="40" placeholder="Название темы"><button type="button" data-action="save-profile">Сохранить</button></div><div id="stui-profile-list"></div><div class="stui-action-row"><button type="button" data-action="export">Экспорт JSON</button><button type="button" data-action="import">Импорт JSON</button></div><input id="stui-import-file" type="file" accept=".json,application/json" hidden>`;
+            html = `<h3>Мои темы</h3><p>Создай пресет или выбери готовый, проверь оформление в предпросмотре и нажми «Сохранить изменения» внизу панели.</p><div class="stui-save-row"><input type="text" id="stui-profile-name" maxlength="40" placeholder="Название темы"><button type="button" data-action="save-profile">Добавить пресет</button></div><div id="stui-profile-list"></div><div class="stui-action-row"><button type="button" data-action="export">Экспорт JSON</button><button type="button" data-action="import">Импорт JSON</button></div><input id="stui-import-file" type="file" accept=".json,application/json" hidden>`;
             break;
         case 'general':
             html = `<h3>Навигация</h3><p class="stui-hint">Безопасный старт: стандартное верхнее меню остаётся видимым, пока ты сама не включишь его скрытие. Сперва проверь стрелку.</p>${field('Скрыть стандартные верхние иконки после проверки стрелки', 'navigation.hideTopBar', 'checkbox')}${field('Сторона стрелки', 'navigation.triggerSide', 'select', {values:[['left','Слева'],['right','Справа']]})}${field('Положение по высоте', 'navigation.triggerTop', 'range', {min:8,max:90,unit:' %'})}
@@ -737,7 +802,7 @@ function renderTab() {
               <h3>Внешний вид стрелки</h3>${field('Ширина стрелки', 'navigation.triggerWidth', 'range', {min:30,max:74,step:1,unit:' px'})}${field('Высота стрелки', 'navigation.triggerHeight', 'range', {min:55,max:120,step:1,unit:' px'})}${field('Цвет подложки', 'navigation.triggerColor', 'color')}${field('Цвет значка', 'navigation.triggerIconColor', 'color')}${field('Непрозрачность стрелки', 'navigation.triggerOpacity', 'range', {min:.3,max:1,step:.05})}
               <h3>Автоматическое затухание</h3>${field('Включить затухание при бездействии', 'navigation.autoFade', 'checkbox')}${field('Прозрачность после затухания', 'navigation.fadeOpacity', 'range', {min:.2,max:.9,step:.05})}${field('Задержка перед затуханием', 'navigation.fadeDelay', 'range', {min:2,max:15,step:1,unit:' с'})}
               <p class="stui-hint">При касании стрелка вновь становится яркой и открывает меню. Затухание не прячет кнопку полностью: её всегда можно найти. Выключи эту функцию, если предпочитаешь постоянную яркость.</p>
-              <h3>Восстановление</h3><div class="stui-action-row"><button type="button" data-action="reset-style" class="stui-danger">Сбросить оформление</button><button type="button" data-action="show-native">Показать верхнее меню</button></div>
+              <h3>Восстановление</h3><p class="stui-hint">Изменения вступят в силу после нажатия «Сохранить изменения» внизу панели.</p><div class="stui-action-row"><button type="button" data-action="reset-style" class="stui-danger">Сбросить оформление</button><button type="button" data-action="show-native">Показать верхнее меню</button></div>
               <p class="stui-hint">Если стрелка исчезла и верхнее меню недоступно, добавь ?stui_safe=1 к адресу SillyTavern и перезагрузи страницу. Это временно отключит UI Studio без удаления настроек.</p>`;
             break;
     }
@@ -760,7 +825,7 @@ function bindStudio() {
                 item.size = clamp(slider.value, 28, 200, item.size);
                 const output = slider.parentElement.querySelector('output');
                 if (output) output.textContent = `${item.size} px`;
-                persistAndApply();
+                stageSettings();
             }
             return;
         }
@@ -773,8 +838,7 @@ function bindStudio() {
         settings[section][name] = input.type === 'checkbox' ? input.checked : input.type === 'range' ? Number(input.value) : input.value;
         const output = elements.tabContent.querySelector(`output[for="${input.id}"]`);
         if (output) output.textContent = `${input.value}${input.dataset.field === 'navigation.triggerTop' ? ' %' : name === 'fadeDelay' ? ' с' : ['modelSize','userSize','cardBorderWidth','cardRadius','cardPadding','avatarSize','avatarBorderWidth','iconSize','triggerWidth','triggerHeight'].includes(name) ? ' px' : ''}`;
-        settings = normalize(settings);
-        persistAndApply();
+        stageSettings();
     });
     elements.tabContent.addEventListener('keydown', event => {
         if (event.key === 'Enter' && event.target.id === 'stui-deco-paste-link') {
@@ -787,7 +851,7 @@ function bindStudio() {
         if (input.matches('[data-icon-choice]')) {
             const id = input.dataset.iconChoice;
             settings.icons[id] = { klass: ICONS.includes(input.value) ? input.value : 'fa-gear', image: '' };
-            persist(); syncNav(); renderIconRows();
+            stageSettings(); renderIconRows();
         }
         if (input.matches('[data-icon-file]')) handleIconFile(input);
         if (input.id === 'stui-decoration-file') handleDecorationFile(input);
@@ -797,7 +861,7 @@ function bindStudio() {
         const decoDel = event.target.closest('[data-remove-decoration]');
         if (decoDel) return removeDecoration(decoDel.dataset.removeDecoration);
         const iconReset = event.target.closest('[data-reset-icon]');
-        if (iconReset) { delete settings.icons[iconReset.dataset.resetIcon]; persist(); syncNav(); renderIconRows(); return; }
+        if (iconReset) { delete settings.icons[iconReset.dataset.resetIcon]; stageSettings(); renderIconRows(); return; }
         const profileLoad = event.target.closest('[data-load-profile]');
         if (profileLoad) return loadProfile(profileLoad.dataset.loadProfile);
         const profileDelete = event.target.closest('[data-delete-profile]');
@@ -808,7 +872,7 @@ function bindStudio() {
         if (action === 'export') exportSettings();
         if (action === 'import') elements.tabContent.querySelector('#stui-import-file')?.click();
         if (action === 'reset-style') resetStyle();
-        if (action === 'show-native') { settings.navigation.hideTopBar = false; persistAndApply(); renderTab(); closeStudio(); }
+        if (action === 'show-native') { settings.navigation.hideTopBar = false; stageSettings(); renderTab(); }
     });
 }
 
@@ -848,6 +912,7 @@ function renderIconRows() {
 }
 async function handleIconFile(input) {
     const file = input.files?.[0];
+    const session = studioSession;
     if (!file) return;
     if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type) || file.size > 90000) {
         alert('Нужен файл PNG, JPEG, WebP или GIF размером не более 90 КБ.'); input.value = ''; return;
@@ -861,8 +926,9 @@ async function handleIconFile(input) {
         });
         const safe = safeImage(data);
         if (!safe) throw new Error('Недопустимое изображение');
+        if (!studioBaseline || session !== studioSession) return;
         settings.icons[input.dataset.iconFile] = { klass: '', image: safe };
-        persist(); syncNav(); renderIconRows();
+        stageSettings(); renderIconRows();
     } catch (error) { alert(`Не получилось загрузить иконку: ${error.message}`); }
 }
 
@@ -954,16 +1020,17 @@ function addDecoration(assetId = '', image = '', openclipartId = '', caption = '
         url: cleanedUrl, image: cleanedImage,
         x: 48 + offset * 5, y: 48 + offset * 5, size: 88,
     });
-    persistAndApply();
+    stageSettings();
     renderDecorationRows();
 }
 function removeDecoration(id) {
     settings.decorations = settings.decorations.filter(item => item.id !== id);
-    persistAndApply();
+    stageSettings();
     renderDecorationRows();
 }
 
 async function addDecorationFromLink() {
+    const session = studioSession;
     const input = elements.tabContent.querySelector('#stui-deco-paste-link');
     const url = safeDecorationUrl(input?.value);
     if (!url) {
@@ -988,6 +1055,7 @@ async function addDecorationFromLink() {
             preview.onerror = () => { clearTimeout(timer); reject(new Error('Сайт не разрешил загрузку изображения')); };
             preview.src = url;
         });
+        if (!studioBaseline || session !== studioSession) return;
         addDecoration('', '', '', '', url);
         if (input) input.value = '';
     } catch (error) {
@@ -1044,6 +1112,7 @@ function renderDecorationRows() {
     }
 }
 async function handleDecorationFile(input) {
+    const session = studioSession;
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
@@ -1074,6 +1143,7 @@ async function handleDecorationFile(input) {
             data = canvas.toDataURL('image/webp', .65);
         }
         if (!safeImage(data)) throw new Error('PNG слишком сложный для хранения в настройках. Попробуй уменьшить размер');
+        if (!studioBaseline || session !== studioSession) return;
         const used = settings.decorations.reduce((sum, item) => sum + (item.image?.length || 0), 0);
         if (used + data.length > 400000) throw new Error('В настройках уже много картинок. Удали часть своих PNG перед добавлением');
         addDecoration('', data);
@@ -1093,18 +1163,18 @@ function saveProfile() {
     if (!settings.profiles[name] && Object.keys(settings.profiles).length >= 15) { alert('Можно сохранить до 15 тем.'); return; }
     settings.profiles[name] = snapshotProfile();
     input.value = '';
-    persist(); renderProfileRows();
+    stageSettings(); renderProfileRows();
 }
 function loadProfile(name) {
     const profile = settings.profiles[name];
     if (!profile) return;
     const clean = normalize(profile, false);
     settings.style = clean.style; settings.icons = clean.icons; settings.decorations = clean.decorations;
-    persistAndApply(); syncNav(); renderTab();
+    stageSettings(); renderTab();
 }
 function deleteProfile(name) {
     if (!settings.profiles[name] || !confirm(`Удалить сохранённую тему «${name}»?`)) return;
-    delete settings.profiles[name]; persist(); renderProfileRows();
+    delete settings.profiles[name]; stageSettings(); renderProfileRows();
 }
 function renderProfileRows() {
     const list = elements.tabContent.querySelector('#stui-profile-list');
@@ -1126,15 +1196,17 @@ function exportSettings() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 async function handleImport(input) {
+    const session = studioSession;
     const file = input.files?.[0]; input.value = '';
     if (!file) return;
     if (file.size > 1500000) { alert('Файл настроек слишком большой (максимум 1,5 МБ).'); return; }
     try {
         const imported = JSON.parse(await file.text());
+        if (!studioBaseline || session !== studioSession) return;
         if (imported?.format !== 'sillytavern-ui-studio' || imported.version !== 1 || !imported.settings) throw new Error('Неизвестный формат темы');
         if (!confirm('Заменить текущие настройки UI Studio настройками из файла?')) return;
         settings = normalize(imported.settings);
-        persistAndApply(); syncNav(); renderTab();
+        stageSettings(); renderTab();
     } catch (error) { alert(`Не удалось импортировать тему: ${error.message}`); }
 }
 function resetStyle() {
@@ -1142,10 +1214,12 @@ function resetStyle() {
     const keepProfiles = settings.profiles;
     const keepNavigation = settings.navigation;
     settings = normalize({ profiles: keepProfiles, navigation: keepNavigation });
-    persistAndApply(); syncNav(); renderTab();
+    stageSettings(); renderTab();
 }
 function dispose() {
     if (!started) return;
+    studioSession += 1;
+    discardStudioChanges();
     clearTimeout(fadeTimer);
     fadeTimer = null;
     observer?.disconnect();

@@ -322,9 +322,9 @@ body.stui-active #stui-preview .stui-preview-user .stui-preview-text {
     line-height: var(--stui-line-height, 1.55);
     color: var(--stui-user-color, #e7d8f7);
 }
-body.stui-active[data-stui-avatar-position^="top-"] #stui-preview .stui-preview-message { flex-direction: column; }
-body.stui-active[data-stui-avatar-position="top-center"] #stui-preview .stui-preview-avatar { align-self: center; }
-body.stui-active[data-stui-avatar-position="top-left"] #stui-preview .stui-preview-avatar { align-self: flex-start; }
+body.stui-active #stui-preview[data-stui-avatar-position^="top-"] .stui-preview-message { flex-direction: column; }
+body.stui-active #stui-preview[data-stui-avatar-position="top-center"] .stui-preview-avatar { align-self: center; }
+body.stui-active #stui-preview[data-stui-avatar-position="top-left"] .stui-preview-avatar { align-self: flex-start; }
 body.stui-active .stui-settings {
     padding: 14px 16px calc(30px + env(safe-area-inset-bottom, 0px));
 }
@@ -406,14 +406,18 @@ body.stui-active .stui-upload-button input { position: absolute; inset: 0; opaci
 body.stui-active .stui-footer {
     flex: none;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 7px;
     padding: 11px 14px calc(11px + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid var(--stui-hairline);
     color: var(--stui-muted);
     font-size: 11px;
 }
+body.stui-active .stui-footer-actions { display: flex; gap: 8px; }
+body.stui-active .stui-footer-actions button { flex: 1; min-height: 43px; font-size: 12px; }
+body.stui-active #stui-save-changes { background: #79559e; border-color: #b793dc; font-weight: 650; }
+body.stui-active #stui-save-changes:disabled { opacity: .45; cursor: default; }
 
 /* The actual SillyTavern chat is the live preview. */
 body.stui-active #chat { background-color: var(--stui-chat-overlay, transparent) !important; }
