@@ -6,10 +6,18 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
 // Run the pure helpers without starting SillyTavern or accessing a browser DOM.
 const helpers = source.replace(/export function onDisable\(\)[\s\S]*$/, '') + '\n' +
-    'globalThis.testHelpers = { safeDecorationUrl, cleanDecorations, decorationSource, normalize };';
-const sandbox = { URL, structuredClone, console };
+    'globalThis.testHelpers = { safeDecorationUrl, cleanDecorations, decorationSource, normalize, revealTrigger, scheduleFade };';
+const sandbox = {
+    URL, structuredClone, console, clearTimeout,
+    document: { body: { classList: { remove() {}, contains() { return false; } } } },
+};
 vm.runInNewContext(helpers, sandbox, { filename: 'index.js' });
-const { safeDecorationUrl, cleanDecorations, decorationSource, normalize } = sandbox.testHelpers;
+const { safeDecorationUrl, cleanDecorations, decorationSource, normalize, revealTrigger, scheduleFade } = sandbox.testHelpers;
+
+// This caught the v0.2.6 regression: clicking the arrow used to reference
+// gallerySearchAbort after the gallery and its state had been removed.
+assert.doesNotThrow(() => revealTrigger());
+assert.doesNotThrow(() => scheduleFade());
 
 assert.equal(safeDecorationUrl('https://assets.example.org/flower.png?size=320'), 'https://assets.example.org/flower.png?size=320');
 assert.equal(safeDecorationUrl('https://assets.example.org/flower.PNG'), 'https://assets.example.org/flower.PNG');

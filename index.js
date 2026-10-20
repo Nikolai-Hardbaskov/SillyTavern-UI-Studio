@@ -514,8 +514,6 @@ function updateScrim() {
 function revealTrigger() {
     clearTimeout(fadeTimer);
     fadeTimer = null;
-    gallerySearchAbort?.abort();
-    gallerySearchAbort = null;
     document.body.classList.remove('stui-trigger-faded');
 }
 function scheduleFade() {
