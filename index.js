@@ -472,9 +472,28 @@ function createUI() {
       <header class="stui-panel-header"><div><small>UI STUDIO</small><h2>Theme Studio</h2></div>
         <button id="stui-studio-close" class="stui-icon-button" type="button" aria-label="Закрыть настройки"><i class="fa-solid fa-xmark"></i></button></header>
       <div id="stui-tabs" role="tablist" aria-label="Разделы оформления"></div>
+      <section id="stui-preview" aria-label="Предпросмотр оформления чата">
+        <div class="stui-preview-header">
+          <span><i class="fa-solid fa-eye" aria-hidden="true"></i> Предпросмотр</span>
+          <button type="button" id="stui-preview-toggle" aria-expanded="true" aria-controls="stui-preview-chat">Свернуть</button>
+        </div>
+        <div id="stui-preview-chat">
+          <div class="stui-preview-message stui-preview-model">
+            <div class="stui-preview-avatar" aria-hidden="true">AI</div>
+            <div class="stui-preview-content"><span class="stui-preview-name">Модель</span>
+              <p class="stui-preview-text">В комнате было тихо, лишь часы отсчитывали секунды…</p></div>
+          </div>
+          <div class="stui-preview-message stui-preview-user">
+            <div class="stui-preview-avatar" aria-hidden="true">Я</div>
+            <div class="stui-preview-content"><span class="stui-preview-name">Ты</span>
+              <p class="stui-preview-text">Мне нравится этот вариант оформления.</p></div>
+          </div>
+        </div>
+      </section>
       <div id="stui-tab-content" class="stui-scroll stui-settings"></div>
       <footer class="stui-footer"><span>Изменения видны сразу в чате</span><button type="button" id="stui-back-menu">Меню</button></footer>`;
     elements.tabs = elements.studio.querySelector('#stui-tabs');
+    elements.preview = elements.studio.querySelector('#stui-preview');
     elements.tabContent = elements.studio.querySelector('#stui-tab-content');
 
     elements.decorations = document.createElement('div');
@@ -489,6 +508,11 @@ function createUI() {
         if (button) nativeDrawerClick(button.dataset.nativeDrawer);
     });
     elements.studio.querySelector('#stui-studio-close').addEventListener('click', closeStudio);
+    elements.preview.querySelector('#stui-preview-toggle').addEventListener('click', event => {
+        const collapsed = elements.preview.classList.toggle('stui-preview-collapsed');
+        event.currentTarget.setAttribute('aria-expanded', String(!collapsed));
+        event.currentTarget.textContent = collapsed ? 'Развернуть' : 'Свернуть';
+    });
     elements.studio.querySelector('#stui-back-menu').addEventListener('click', () => { closeStudio(); openMenu(); });
     document.addEventListener('keydown', onKeyDown);
     bindStudio();
@@ -673,6 +697,9 @@ function renderTabs() {
     }
 }
 function renderTab() {
+    // Keep the sample visible above the scroll area while editing text, cards, and avatars.
+    // All its styles use the same CSS variables as the real chat and update via applyTheme().
+    if (elements.preview) elements.preview.hidden = !['text', 'messages', 'avatars'].includes(chosenTab);
     const fontOptions = FONTS.map(name => [name, name === 'inherit' ? 'Как в SillyTavern' : name]);
     let html = '';
     switch (chosenTab) {

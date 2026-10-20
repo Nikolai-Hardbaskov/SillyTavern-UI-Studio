@@ -4,7 +4,7 @@
   "js": "index.js",
   "css": "style.css",
   "author": "UI Studio",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "requires": [],
   "optional": [],
   "hooks": {
