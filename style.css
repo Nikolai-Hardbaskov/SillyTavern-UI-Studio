@@ -407,6 +407,50 @@ body.stui-active #stui-decorations .stui-decoration img {
     -webkit-user-drag: none;
     user-select: none;
 }
+body.stui-active .stui-deco-search {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+    margin: 10px 0;
+}
+body.stui-active .stui-deco-search input {
+    min-width: 0;
+    flex: 1 1 auto;
+    height: 42px;
+    padding: 9px;
+    box-sizing: border-box;
+    border-radius: 9px;
+    border: 1px solid var(--stui-hairline);
+    color: #f7f2fa;
+    background: #332c3f;
+    font: 13px system-ui, sans-serif;
+}
+body.stui-active .stui-deco-search button {
+    flex: 0 0 auto;
+    min-height: 42px;
+}
+body.stui-active .stui-deco-remote-results {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+}
+body.stui-active .stui-deco-pager {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: center;
+    margin: 8px 0 14px;
+    font: 12px system-ui, sans-serif;
+    color: var(--stui-muted);
+}
+body.stui-active .stui-deco-pager button[disabled] {
+    opacity: .42;
+    cursor: not-allowed;
+}
+body.stui-active .stui-settings a {
+    color: #e3c7fb;
+    text-decoration: underline;
+}
 body.stui-active #stui-decoration-filters {
     display: flex;
     gap: 7px;
