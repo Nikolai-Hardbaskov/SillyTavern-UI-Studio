@@ -1,7 +1,29 @@
-/* SillyTavern UI Studio — mobile-first frontend extension. No external dependencies. */
+/* SillyTavern UI Studio — mobile-first frontend extension. The optional art gallery uses Openclipart. */
 const KEY = 'sillytavern_ui_studio';
 const PREFIX = 'stui';
 const ICONS = ['fa-sliders', 'fa-plug', 'fa-font', 'fa-book-atlas', 'fa-user-gear', 'fa-panorama', 'fa-cubes', 'fa-clock', 'fa-face-smile', 'fa-address-card', 'fa-palette', 'fa-star', 'fa-heart', 'fa-moon', 'fa-wand-magic-sparkles', 'fa-gear', 'fa-image', 'fa-book', 'fa-comments', 'fa-bars'];
+const GALLERY = [
+    {
+        "id": "books",
+        "label": "Стопка книг",
+        "url": "https://openclipart.org/image/400px/296597"
+    },
+    {
+        "id": "flowers",
+        "label": "Цветы",
+        "url": "https://openclipart.org/image/400px/353628"
+    },
+    {
+        "id": "snow",
+        "label": "Снежинка",
+        "url": "https://openclipart.org/image/400px/206250"
+    },
+    {
+        "id": "telephone",
+        "label": "Ретро-телефон",
+        "url": "https://openclipart.org/image/400px/201543"
+    }
+];
 const FONTS = ['inherit', 'system-ui', 'Arial', 'Georgia', 'Verdana', 'Trebuchet MS', 'Times New Roman', 'Courier New', 'Tahoma', 'serif', 'sans-serif', 'monospace'];
 const NAV_META = {
     'ai-config-button': ['Chat Completion Presets', 'fa-sliders'],
@@ -82,10 +104,21 @@ function cleanIcons(value) {
 function cleanDecorations(value) {
     if (!Array.isArray(value)) return [];
     const allowed = ['✦', '☾', '♡', '❀', '✧', '🦋', '🌙', '✨'];
-    return value.slice(0, 15).filter(item => item && allowed.includes(item.symbol)).map(item => ({
-        id: typeof item.id === 'string' && /^[\w-]{1,60}$/.test(item.id) ? item.id : `d${Math.random().toString(36).slice(2)}`,
-        symbol: item.symbol, x: clamp(item.x, 3, 97, 75), y: clamp(item.y, 3, 97, 30),
-    }));
+    return value.slice(0, 15).filter(item => {
+        if (!item || typeof item !== 'object') return false;
+        return allowed.includes(item.symbol) || GALLERY.some(asset => asset.id === item.assetId) || Boolean(safeImage(item.image));
+    }).map(item => {
+        const assetId = GALLERY.some(asset => asset.id === item.assetId) ? item.assetId : '';
+        const image = assetId ? '' : safeImage(item.image);
+        const symbol = !assetId && !image && allowed.includes(item.symbol) ? item.symbol : '';
+        return {
+            id: typeof item.id === 'string' && /^[\w-]{1,60}$/.test(item.id) ? item.id : `d${Math.random().toString(36).slice(2)}`,
+            symbol, assetId, image,
+            x: clamp(item.x, 3, 97, 50),
+            y: clamp(item.y, 3, 97, 50),
+            size: clamp(item.size, 28, 200, (assetId || image) ? 88 : 46),
+        };
+    });
 }
 function normalize(raw, includeProfiles = true) {
     const data = structuredClone(DEFAULTS);
@@ -445,7 +478,14 @@ function renderTab() {
             html = `<h3>Значки меню</h3><p>Меняй стандартные значки выдвижного меню. Можно выбрать встроенную иконку или загрузить PNG/JPEG/WebP/GIF (до 90 КБ).</p><div id="stui-icon-rows"></div><h3>Цвет и размер</h3>${field('Цвет обычных значков', 'style.iconColor', 'color')}${field('Размер значков', 'style.iconSize', 'range', {min:14,max:34,unit:' px'})}<p class="stui-hint">В этой версии заменяются значки левого меню, а не все внутренние кнопки SillyTavern.</p>`;
             break;
         case 'decorations':
-            html = `<h3>Перетаскиваемый декор</h3><p>Добавь украшения на экран чата. Удерживай символ и перетаскивай пальцем; положение сохранится.</p><div id="stui-decoration-palette"></div><div id="stui-decoration-list"></div><p class="stui-hint">Декор расположен поверх чата и не передаётся модели.</p>`;
+            html = `<h3>Декор для чата</h3><p>Нажми на картинку → закрой Theme Studio → украшение появится в центре экрана. Перетащи его пальцем куда захочешь.</p>
+              <h3>Галерея прозрачных рисунков</h3><div id="stui-decoration-gallery"></div>
+              <p class="stui-hint">Рисунки Openclipart (CC0). Для галереи нужен интернет; это настоящие иллюстрации предметов, не PNG-эмодзи.</p>
+              <h3>Своё изображение</h3><label class="stui-upload-button stui-deco-upload">Добавить свой PNG / WebP <input type="file" id="stui-decoration-file" accept="image/png,image/webp"></label>
+              <p class="stui-hint">Файл до 3 МБ автоматически уменьшается для сохранения в настройках. Прозрачность сохраняется.</p>
+              <h3>Символы (необязательно)</h3><div id="stui-decoration-palette"></div>
+              <h3>Мои украшения</h3><p id="stui-decoration-count" aria-live="polite"></p><div id="stui-decoration-list"></div>
+              <p class="stui-hint">Декор виден только на твоём экране и не передаётся модели. Для удаления используй кнопку в списке.</p>`;
             break;
         case 'profiles':
             html = `<h3>Мои темы</h3><p>Сохраняй оформление и быстро меняй его. Можно перенести настройки на другой телефон.</p><div class="stui-save-row"><input type="text" id="stui-profile-name" maxlength="40" placeholder="Название темы"><button type="button" data-action="save-profile">Сохранить</button></div><div id="stui-profile-list"></div><div class="stui-action-row"><button type="button" data-action="export">Экспорт JSON</button><button type="button" data-action="import">Импорт JSON</button></div><input id="stui-import-file" type="file" accept=".json,application/json" hidden>`;
@@ -472,6 +512,17 @@ function bindStudio() {
         chosenTab = key; renderTabs(); renderTab();
     });
     elements.tabContent.addEventListener('input', event => {
+        const slider = event.target.closest('[data-deco-size]');
+        if (slider) {
+            const item = settings.decorations.find(d => d.id === slider.dataset.decoSize);
+            if (item) {
+                item.size = clamp(slider.value, 28, 200, item.size);
+                const output = slider.parentElement.querySelector('output');
+                if (output) output.textContent = `${item.size} px`;
+                persistAndApply();
+            }
+            return;
+        }
         const input = event.target.closest('[data-field]');
         if (!input) return;
         const [section, name] = input.dataset.field.split('.');
@@ -492,9 +543,12 @@ function bindStudio() {
             persist(); syncNav(); renderIconRows();
         }
         if (input.matches('[data-icon-file]')) handleIconFile(input);
+        if (input.id === 'stui-decoration-file') handleDecorationFile(input);
         if (input.id === 'stui-import-file') handleImport(input);
     });
     elements.tabContent.addEventListener('click', event => {
+        const galleryAdd = event.target.closest('[data-add-decor-asset]');
+        if (galleryAdd) return addDecoration('', galleryAdd.dataset.addDecorAsset);
         const decoAdd = event.target.closest('[data-add-decoration]');
         if (decoAdd) return addDecoration(decoAdd.dataset.addDecoration);
         const decoDel = event.target.closest('[data-remove-decoration]');
@@ -578,21 +632,41 @@ function renderDecorations() {
             node.type = 'button';
             node.className = 'stui-decoration';
             node.dataset.decoId = item.id;
-            node.title = 'Перетащи меня';
-            node.setAttribute('aria-label', `Украшение ${item.symbol}, перетащить`);
+            node.title = 'Удерживай и перетаскивай пальцем';
             node.addEventListener('pointerdown', startDecorationDrag);
             node.addEventListener('pointermove', moveDecorationDrag);
             node.addEventListener('pointerup', endDecorationDrag);
             node.addEventListener('pointercancel', endDecorationDrag);
             elements.decorations.append(node);
         }
-        node.textContent = item.symbol;
+        const asset = GALLERY.find(g => g.id === item.assetId);
+        const source = asset?.url || item.image;
+        const key = source || item.symbol;
+        if (node._stuiRenderKey !== key) {
+            if (source) {
+                const image = document.createElement('img');
+                image.src = source;
+                image.alt = '';
+                image.draggable = false;
+                image.decoding = 'async';
+                node.replaceChildren(image);
+            } else {
+                node.textContent = item.symbol;
+            }
+            node._stuiRenderKey = key;
+        }
+        node.setAttribute('aria-label', `Украшение ${asset?.label || (item.image ? 'Мой PNG' : item.symbol)}, перетащить`);
+        node.classList.toggle('stui-decoration-image', Boolean(source));
         node.style.left = `${item.x}%`;
         node.style.top = `${item.y}%`;
+        node.style.width = `${item.size}px`;
+        node.style.height = `${item.size}px`;
+        node.style.fontSize = `${Math.round(item.size * .68)}px`;
         current.delete(item.id);
     }
     current.forEach(node => node.remove());
 }
+
 function startDecorationDrag(event) {
     const item = settings.decorations.find(d => d.id === event.currentTarget.dataset.decoId);
     if (!item) return;
@@ -600,47 +674,174 @@ function startDecorationDrag(event) {
     dragState = { id: item.id, pointer: event.pointerId };
     event.currentTarget.setPointerCapture(event.pointerId);
 }
+
 function moveDecorationDrag(event) {
     if (!dragState || dragState.pointer !== event.pointerId || dragState.id !== event.currentTarget.dataset.decoId) return;
     const item = settings.decorations.find(d => d.id === dragState.id);
     if (!item) return;
-    item.x = clamp(event.clientX / window.innerWidth * 100, 3, 97, 50);
-    item.y = clamp(event.clientY / window.innerHeight * 100, 3, 97, 50);
+    const width = window.visualViewport?.width || window.innerWidth;
+    const height = window.visualViewport?.height || window.innerHeight;
+    const edgeX = Math.min(40, Math.max(3, (item.size / 2 + 4) / width * 100));
+    const edgeY = Math.min(40, Math.max(3, (item.size / 2 + 4) / height * 100));
+    item.x = clamp(event.clientX / width * 100, edgeX, 100 - edgeX, 50);
+    item.y = clamp(event.clientY / height * 100, edgeY, 100 - edgeY, 50);
     event.currentTarget.style.left = `${item.x}%`;
     event.currentTarget.style.top = `${item.y}%`;
 }
+
 function endDecorationDrag(event) {
-    if (!dragState || dragState.pointer !== event.pointerId) return;
+    if (!dragState || dragState.pointer !== event.pointerId || dragState.id !== event.currentTarget.dataset.decoId) return;
     dragState = null;
     persist();
 }
-function addDecoration(symbol) {
-    if (!['✦', '☾', '♡', '❀', '✧', '🦋', '🌙', '✨'].includes(symbol) || settings.decorations.length >= 15) return;
-    settings.decorations.push({ id: `d${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, symbol, x: 75, y: 30 });
-    persistAndApply(); renderDecorationRows();
+
+function addDecoration(symbol = '', assetId = '', image = '') {
+    if (settings.decorations.length >= 15) {
+        alert('Можно добавить до 15 украшений. Сначала удали ненужные.');
+        return;
+    }
+    const asset = GALLERY.find(g => g.id === assetId);
+    const cleanedImage = asset ? '' : safeImage(image);
+    if (!asset && !cleanedImage && !['✦', '☾', '♡', '❀', '✧', '🦋', '🌙', '✨'].includes(symbol)) return;
+    const size = asset || cleanedImage ? 88 : 46;
+    const offset = settings.decorations.length % 3;
+    settings.decorations.push({
+        id: `d${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        symbol: asset || cleanedImage ? '' : symbol,
+        assetId: asset?.id || '',
+        image: cleanedImage,
+        x: 48 + offset * 5, y: 48 + offset * 5, size,
+    });
+    persistAndApply();
+    renderDecorationRows();
 }
+
 function removeDecoration(id) {
     settings.decorations = settings.decorations.filter(item => item.id !== id);
-    persistAndApply(); renderDecorationRows();
+    persistAndApply();
+    renderDecorationRows();
 }
+
 function renderDecorationRows() {
     const palette = elements.tabContent.querySelector('#stui-decoration-palette');
+    const gallery = elements.tabContent.querySelector('#stui-decoration-gallery');
     const list = elements.tabContent.querySelector('#stui-decoration-list');
-    if (!palette || !list) return;
-    palette.replaceChildren(); list.replaceChildren();
+    const counter = elements.tabContent.querySelector('#stui-decoration-count');
+    if (!palette || !gallery || !list) return;
+    palette.replaceChildren();
+    gallery.replaceChildren();
+    list.replaceChildren();
+    if (counter) counter.textContent = `Добавлено: ${settings.decorations.length} из 15`;
+    for (const asset of GALLERY) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'stui-gallery-item';
+        button.dataset.addDecorAsset = asset.id;
+        button.title = `Добавить: ${asset.label}`;
+        const image = document.createElement('img');
+        image.src = asset.url;
+        image.alt = '';
+        image.loading = 'lazy';
+        const name = document.createElement('span');
+        name.textContent = asset.label;
+        button.append(image, name);
+        gallery.append(button);
+    }
     for (const symbol of ['✦', '☾', '♡', '❀', '✧', '🦋', '🌙', '✨']) {
         const button = document.createElement('button');
-        button.type = 'button'; button.textContent = symbol;
+        button.type = 'button';
+        button.textContent = symbol;
         button.dataset.addDecoration = symbol;
-        button.title = 'Добавить украшение';
+        button.title = 'Добавить символ';
         palette.append(button);
     }
     for (const item of settings.decorations) {
-        const row = document.createElement('div'); row.className = 'stui-list-row';
-        const label = document.createElement('span'); label.textContent = `${item.symbol} — ${Math.round(item.x)}%, ${Math.round(item.y)}%`;
-        const remove = document.createElement('button'); remove.type = 'button';
-        remove.textContent = 'Удалить'; remove.dataset.removeDecoration = item.id;
-        row.append(label, remove); list.append(row);
+        const row = document.createElement('div');
+        row.className = 'stui-deco-row';
+        const description = document.createElement('div');
+        description.className = 'stui-deco-row-info';
+        const asset = GALLERY.find(g => g.id === item.assetId);
+        const source = asset?.url || item.image;
+        if (source) {
+            const preview = document.createElement('img');
+            preview.src = source;
+            preview.alt = '';
+            preview.loading = 'lazy';
+            description.append(preview);
+        } else {
+            const preview = document.createElement('span');
+            preview.className = 'stui-deco-symbol';
+            preview.textContent = item.symbol;
+            description.append(preview);
+        }
+        const title = document.createElement('span');
+        title.textContent = `${asset?.label || (item.image ? 'Мой PNG' : 'Символ')} · ${Math.round(item.x)}%, ${Math.round(item.y)}%`;
+        description.append(title);
+        const controls = document.createElement('div');
+        controls.className = 'stui-deco-row-controls';
+        const sizeLabel = document.createElement('label');
+        sizeLabel.textContent = 'Размер';
+        const sizeSlider = document.createElement('input');
+        sizeSlider.type = 'range';
+        sizeSlider.min = '28';
+        sizeSlider.max = '200';
+        sizeSlider.step = '2';
+        sizeSlider.value = String(item.size);
+        sizeSlider.dataset.decoSize = item.id;
+        sizeSlider.setAttribute('aria-label', `Размер украшения ${title.textContent}`);
+        const sizeOutput = document.createElement('output');
+        sizeOutput.textContent = `${item.size} px`;
+        sizeSlider.id = `stui-deco-size-${item.id}`;
+        sizeOutput.htmlFor = sizeSlider.id;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = 'Удалить';
+        remove.dataset.removeDecoration = item.id;
+        sizeLabel.append(sizeSlider, sizeOutput);
+        controls.append(sizeLabel, remove);
+        row.append(description, controls);
+        list.append(row);
+    }
+}
+
+async function handleDecorationFile(input) {
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    if (!['image/png', 'image/webp'].includes(file.type) || file.size > 3000000) {
+        alert('Выбери PNG или WebP не больше 3 МБ. Лучше всего подойдёт изображение с прозрачным фоном.');
+        return;
+    }
+    const url = URL.createObjectURL(file);
+    try {
+        const image = await new Promise((resolve, reject) => {
+            const picture = new Image();
+            picture.onload = () => resolve(picture);
+            picture.onerror = () => reject(new Error('Картинка не открывается'));
+            picture.src = url;
+        });
+        if (image.naturalWidth > 6000 || image.naturalHeight > 6000) throw new Error('Слишком большие размеры изображения');
+        const canvas = document.createElement('canvas');
+        const ratio = Math.min(1, 320 / Math.max(image.naturalWidth, image.naturalHeight));
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * ratio));
+        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+        let data = canvas.toDataURL('image/webp', .82);
+        if (!safeImage(data)) {
+            const factor = Math.min(1, 200 / Math.max(canvas.width, canvas.height));
+            canvas.width = Math.max(1, Math.round(canvas.width * factor));
+            canvas.height = Math.max(1, Math.round(canvas.height * factor));
+            canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+            data = canvas.toDataURL('image/webp', .65);
+        }
+        if (!safeImage(data)) throw new Error('PNG слишком сложный для хранения в настройках. Попробуй уменьшить размер');
+        const used = settings.decorations.reduce((sum, item) => sum + (item.image?.length || 0), 0);
+        if (used + data.length > 400000) throw new Error('В настройках уже много картинок. Удали часть своих PNG перед добавлением');
+        addDecoration('', '', data);
+    } catch (error) {
+        alert(`Не получилось добавить PNG: ${error.message}`);
+    } finally {
+        URL.revokeObjectURL(url);
     }
 }
 function snapshotProfile() {
