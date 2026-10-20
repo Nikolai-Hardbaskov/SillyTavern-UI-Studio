@@ -1,0 +1,732 @@
+/* SillyTavern UI Studio — mobile-first frontend extension. No external dependencies. */
+const KEY = 'sillytavern_ui_studio';
+const PREFIX = 'stui';
+const ICONS = ['fa-sliders', 'fa-plug', 'fa-font', 'fa-book-atlas', 'fa-user-gear', 'fa-panorama', 'fa-cubes', 'fa-clock', 'fa-face-smile', 'fa-address-card', 'fa-palette', 'fa-star', 'fa-heart', 'fa-moon', 'fa-wand-magic-sparkles', 'fa-gear', 'fa-image', 'fa-book', 'fa-comments', 'fa-bars'];
+const FONTS = ['inherit', 'system-ui', 'Arial', 'Georgia', 'Verdana', 'Trebuchet MS', 'Times New Roman', 'Courier New', 'Tahoma', 'serif', 'sans-serif', 'monospace'];
+const NAV_META = {
+    'ai-config-button': ['Chat Completion Presets', 'fa-sliders'],
+    'sys-settings-button': ['API', 'fa-plug'],
+    'advanced-formatting-button': ['Advanced Formatting', 'fa-font'],
+    'WI-SP-button': ['Worlds / Lorebooks', 'fa-book-atlas'],
+    'user-settings-button': ['User Settings', 'fa-user-gear'],
+    'backgrounds-button': ['Backgrounds', 'fa-panorama'],
+    'extensions-settings-button': ['Extensions', 'fa-cubes'],
+    'persona-management-button': ['Persona Management', 'fa-face-smile'],
+    'rightNavHolder': ['Characters', 'fa-address-card'],
+};
+const DEFAULTS = {
+    navigation: {
+        hideTopBar: true, triggerTop: 43, triggerSide: 'left',
+        triggerWidth: 35, triggerHeight: 77,
+        triggerColor: '#4c4956', triggerIconColor: '#f4edf9', triggerOpacity: 0.92,
+        autoFade: true, fadeOpacity: 0.48, fadeDelay: 5,
+    },
+    style: {
+        modelFont: 'inherit', userFont: 'inherit', modelSize: 17, userSize: 17,
+        modelColor: '#eae5e0', userColor: '#e7d8f7', lineHeight: 1.55,
+        cardBorder: 'none', cardBorderWidth: 1, cardBorderColor: '#8876a8',
+        cardRadius: 12, cardAlpha: 0, cardColor: '#25212d', cardPadding: 10,
+        avatarSize: 44, avatarShape: 'circle', avatarPosition: 'side',
+        avatarBorderWidth: 0, avatarBorderColor: '#c2a7e8',
+        chatColor: '#17151e', chatAlpha: 0,
+        iconColor: '#dac9f5', iconSize: 19,
+    },
+    icons: {},
+    decorations: [],
+    profiles: {},
+};
+const TABS = [
+    ['text', 'Текст'], ['messages', 'Сообщения'], ['avatars', 'Аватары'],
+    ['icons', 'Иконки'], ['decorations', 'Декор'], ['profiles', 'Темы'], ['general', 'Общее'],
+];
+const DANGEROUS_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
+let settings;
+let context;
+let holder;
+let observer;
+let started = false;
+let chosenTab = 'text';
+let navItems = [];
+let focusBefore = null;
+let dragState = null;
+let fadeTimer = null;
+const elements = {};
+
+function clamp(value, min, max, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
+}
+function safeColor(value, fallback) {
+    return typeof value === 'string' && /^#[\da-fA-F]{6}$/.test(value) ? value : fallback;
+}
+function hexRgba(hex, alpha) {
+    const n = Number.parseInt(hex.slice(1), 16);
+    return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+function plainText(value) { return String(value ?? '').replace(/[<>"'&]/g, ''); }
+function safeImage(value) {
+    return typeof value === 'string' && value.length < 150000 && /^data:image\/(png|jpeg|webp|gif);base64,[a-zA-Z0-9+/=]+$/.test(value) ? value : '';
+}
+function cleanIcons(value) {
+    const icons = {};
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return icons;
+    for (const [key, icon] of Object.entries(value).slice(0, 40)) {
+        if (!/^[\w-]{1,80}$/.test(key) || DANGEROUS_KEYS.has(key) || !icon || typeof icon !== 'object') continue;
+        const klass = ICONS.includes(icon.klass) ? icon.klass : '';
+        const image = safeImage(icon.image);
+        if (klass || image) icons[key] = { klass, image };
+    }
+    return icons;
+}
+function cleanDecorations(value) {
+    if (!Array.isArray(value)) return [];
+    const allowed = ['✦', '☾', '♡', '❀', '✧', '🦋', '🌙', '✨'];
+    return value.slice(0, 15).filter(item => item && allowed.includes(item.symbol)).map(item => ({
+        id: typeof item.id === 'string' && /^[\w-]{1,60}$/.test(item.id) ? item.id : `d${Math.random().toString(36).slice(2)}`,
+        symbol: item.symbol, x: clamp(item.x, 3, 97, 75), y: clamp(item.y, 3, 97, 30),
+    }));
+}
+function normalize(raw, includeProfiles = true) {
+    const data = structuredClone(DEFAULTS);
+    if (!raw || typeof raw !== 'object') return data;
+    data.navigation.hideTopBar = raw.navigation?.hideTopBar !== false;
+    data.navigation.triggerTop = clamp(raw.navigation?.triggerTop, 8, 90, 43);
+    const n = raw.navigation || {};
+    if (['left', 'right'].includes(n.triggerSide)) data.navigation.triggerSide = n.triggerSide;
+    for (const k of ['triggerColor', 'triggerIconColor']) data.navigation[k] = safeColor(n[k], data.navigation[k]);
+    for (const [k, min, max] of [
+        ['triggerWidth', 30, 74], ['triggerHeight', 55, 120],
+        ['triggerOpacity', 0.3, 1], ['fadeOpacity', 0.2, 0.9], ['fadeDelay', 2, 15],
+    ]) data.navigation[k] = clamp(n[k], min, max, data.navigation[k]);
+    data.navigation.autoFade = n.autoFade !== false;
+    const s = raw.style || {};
+    const d = data.style;
+    for (const k of ['modelFont', 'userFont']) if (FONTS.includes(s[k])) d[k] = s[k];
+    for (const k of ['modelColor', 'userColor', 'cardBorderColor', 'cardColor', 'avatarBorderColor', 'chatColor', 'iconColor']) d[k] = safeColor(s[k], d[k]);
+    for (const [k, min, max] of [
+        ['modelSize', 12, 32], ['userSize', 12, 32], ['lineHeight', 1.1, 2.5],
+        ['cardBorderWidth', 0, 6], ['cardRadius', 0, 36], ['cardAlpha', 0, 1],
+        ['cardPadding', 0, 30], ['avatarSize', 24, 120], ['avatarBorderWidth', 0, 6],
+        ['chatAlpha', 0, 1], ['iconSize', 14, 34],
+    ]) d[k] = clamp(s[k], min, max, d[k]);
+    if (['none', 'solid', 'dashed', 'double'].includes(s.cardBorder)) d.cardBorder = s.cardBorder;
+    if (['circle', 'rounded', 'square'].includes(s.avatarShape)) d.avatarShape = s.avatarShape;
+    if (['side', 'top-center', 'top-left'].includes(s.avatarPosition)) d.avatarPosition = s.avatarPosition;
+    data.icons = cleanIcons(raw.icons);
+    data.decorations = cleanDecorations(raw.decorations);
+    if (includeProfiles && raw.profiles && typeof raw.profiles === 'object' && !Array.isArray(raw.profiles)) {
+        for (const [name, profile] of Object.entries(raw.profiles).slice(0, 15)) {
+            if (name.length <= 40 && !DANGEROUS_KEYS.has(name) && profile && typeof profile === 'object') {
+                const clean = normalize(profile, false);
+                data.profiles[name] = { style: clean.style, icons: clean.icons, decorations: clean.decorations };
+            }
+        }
+    }
+    return data;
+}
+function persist() {
+    if (!context) return;
+    context.extensionSettings[KEY] = settings;
+    context.saveSettingsDebounced();
+}
+function persistAndApply() { persist(); applyTheme(); }
+
+function makeIcon(icon, override) {
+    if (override?.image) {
+        const img = document.createElement('img');
+        img.className = 'stui-icon-image';
+        img.alt = '';
+        img.src = override.image;
+        return img;
+    }
+    const i = document.createElement('i');
+    i.setAttribute('aria-hidden', 'true');
+    i.className = `fa-solid ${override?.klass || icon} fa-fw`;
+    return i;
+}
+function findNativeDrawers() {
+    if (!holder) return [];
+    return [...holder.children].filter(node => node.matches?.('.drawer') && node.querySelector('.drawer-toggle'));
+}
+function syncNav() {
+    const nodes = findNativeDrawers();
+    navItems = nodes.map((node, index) => {
+        const toggle = node.querySelector('.drawer-toggle');
+        const nativeIcon = toggle.querySelector('.drawer-icon') || toggle;
+        const classes = [...nativeIcon.classList];
+        const icon = classes.find(c => c.startsWith('fa-') && !['fa-solid', 'fa-regular', 'fa-fw'].includes(c)) || 'fa-gear';
+        const title = nativeIcon.getAttribute('title') || toggle.getAttribute('title') || node.id || `Раздел ${index + 1}`;
+        const [knownLabel, knownIcon] = NAV_META[node.id] || [];
+        return { id: node.id || `dynamic-${index}`, node, label: knownLabel || plainText(title), icon: knownIcon || icon };
+    });
+    // Optional extensions (including Horae) are included automatically if they add a native top-bar drawer.
+    const list = elements.menuList;
+    list.replaceChildren();
+    for (const item of navItems) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'stui-menu-item';
+        button.dataset.nativeDrawer = item.id;
+        button.append(makeIcon(item.icon, settings.icons[item.id]));
+        const label = document.createElement('span');
+        label.textContent = item.label;
+        button.append(label);
+        list.append(button);
+    }
+    elements.menuEmpty.hidden = navItems.length > 0;
+    if (chosenTab === 'icons' && elements.studio.classList.contains('stui-open')) renderTab();
+}
+function nativeDrawerClick(id) {
+    const item = navItems.find(it => it.id === id);
+    if (!item) return;
+    closeMenu();
+    const toggle = item.node.querySelector('.drawer-toggle');
+    if (toggle) toggle.click();
+}
+
+function createUI() {
+    elements.trigger = document.createElement('button');
+    elements.trigger.type = 'button';
+    elements.trigger.id = 'stui-trigger';
+    elements.trigger.setAttribute('aria-label', 'Открыть главное меню');
+    elements.trigger.setAttribute('aria-controls', 'stui-menu');
+    elements.trigger.setAttribute('aria-expanded', 'false');
+    elements.trigger.innerHTML = '<i class="fa-solid fa-chevron-right" aria-hidden="true"></i>';
+
+    elements.scrim = document.createElement('div');
+    elements.scrim.id = 'stui-scrim';
+    elements.scrim.hidden = true;
+
+    elements.menu = document.createElement('aside');
+    elements.menu.id = 'stui-menu';
+    elements.menu.setAttribute('aria-label', 'Главное меню SillyTavern');
+    elements.menu.setAttribute('aria-hidden', 'true');
+    elements.menu.innerHTML = `
+      <header class="stui-panel-header"><div><small>SILLYTAVERN</small><h2>Главное меню</h2></div>
+        <button type="button" class="stui-icon-button" id="stui-menu-close" aria-label="Закрыть меню"><i class="fa-solid fa-xmark"></i></button></header>
+      <div class="stui-scroll"><div id="stui-menu-list"></div>
+        <p id="stui-menu-empty" hidden>Пока не найдены штатные разделы.</p>
+        <div class="stui-menu-divider"></div>
+        <button class="stui-menu-item stui-studio-link" id="stui-studio-link" type="button"><i class="fa-solid fa-palette fa-fw"></i><span>Theme Studio</span><i class="fa-solid fa-chevron-right"></i></button>
+      </div>`;
+    elements.menuList = elements.menu.querySelector('#stui-menu-list');
+    elements.menuEmpty = elements.menu.querySelector('#stui-menu-empty');
+
+    elements.studio = document.createElement('aside');
+    elements.studio.id = 'stui-studio';
+    elements.studio.setAttribute('role', 'dialog');
+    elements.studio.setAttribute('aria-modal', 'true');
+    elements.studio.setAttribute('aria-label', 'Theme Studio');
+    elements.studio.setAttribute('aria-hidden', 'true');
+    elements.studio.innerHTML = `
+      <header class="stui-panel-header"><div><small>UI STUDIO</small><h2>Theme Studio</h2></div>
+        <button id="stui-studio-close" class="stui-icon-button" type="button" aria-label="Закрыть настройки"><i class="fa-solid fa-xmark"></i></button></header>
+      <div id="stui-tabs" role="tablist" aria-label="Разделы оформления"></div>
+      <div id="stui-tab-content" class="stui-scroll stui-settings"></div>
+      <footer class="stui-footer"><span>Изменения видны сразу в чате</span><button type="button" id="stui-back-menu">Меню</button></footer>`;
+    elements.tabs = elements.studio.querySelector('#stui-tabs');
+    elements.tabContent = elements.studio.querySelector('#stui-tab-content');
+
+    elements.decorations = document.createElement('div');
+    elements.decorations.id = 'stui-decorations';
+    document.body.append(elements.scrim, elements.trigger, elements.menu, elements.studio, elements.decorations);
+    elements.trigger.addEventListener('click', openMenu);
+    elements.scrim.addEventListener('click', closeAll);
+    elements.menu.querySelector('#stui-menu-close').addEventListener('click', closeMenu);
+    elements.menu.querySelector('#stui-studio-link').addEventListener('click', openStudio);
+    elements.menuList.addEventListener('click', event => {
+        const button = event.target.closest('[data-native-drawer]');
+        if (button) nativeDrawerClick(button.dataset.nativeDrawer);
+    });
+    elements.studio.querySelector('#stui-studio-close').addEventListener('click', closeStudio);
+    elements.studio.querySelector('#stui-back-menu').addEventListener('click', () => { closeStudio(); openMenu(); });
+    document.addEventListener('keydown', onKeyDown);
+    bindStudio();
+    bindTriggerDrag();
+    elements.trigger.addEventListener('pointerenter', event => {
+        if (event.pointerType === 'mouse') revealTrigger();
+    });
+    elements.trigger.addEventListener('pointerleave', event => {
+        if (event.pointerType === 'mouse') scheduleFade();
+    });
+    renderTabs();
+}
+function onKeyDown(event) {
+    if (event.key === 'Escape') closeAll();
+}
+function updateScrim() {
+    const isOpen = elements.menu.classList.contains('stui-open') || elements.studio.classList.contains('stui-open');
+    elements.scrim.hidden = !isOpen;
+    document.body.classList.toggle('stui-overlay-open', isOpen);
+    if (isOpen) revealTrigger();
+    else scheduleFade();
+}
+function revealTrigger() {
+    clearTimeout(fadeTimer);
+    fadeTimer = null;
+    document.body.classList.remove('stui-trigger-faded');
+}
+function scheduleFade() {
+    revealTrigger();
+    if (!started || !settings.navigation.autoFade || document.body.classList.contains('stui-overlay-open')) return;
+    fadeTimer = setTimeout(() => {
+        if (started && !document.body.classList.contains('stui-overlay-open')) {
+            document.body.classList.add('stui-trigger-faded');
+        }
+        fadeTimer = null;
+    }, settings.navigation.fadeDelay * 1000);
+}
+function openMenu() {
+    focusBefore = document.activeElement;
+    closeStudio();
+    syncNav();
+    elements.menu.classList.add('stui-open');
+    elements.menu.setAttribute('aria-hidden', 'false');
+    elements.trigger.setAttribute('aria-expanded', 'true');
+    updateScrim();
+    elements.menu.querySelector('#stui-menu-close').focus();
+}
+function closeMenu() {
+    elements.menu.classList.remove('stui-open');
+    elements.menu.setAttribute('aria-hidden', 'true');
+    elements.trigger.setAttribute('aria-expanded', 'false');
+    updateScrim();
+}
+function openStudio() {
+    focusBefore = document.activeElement;
+    closeMenu();
+    elements.studio.classList.add('stui-open');
+    elements.studio.setAttribute('aria-hidden', 'false');
+    renderTabs();
+    renderTab();
+    updateScrim();
+    elements.studio.querySelector('#stui-studio-close').focus();
+}
+function closeStudio() {
+    elements.studio.classList.remove('stui-open');
+    elements.studio.setAttribute('aria-hidden', 'true');
+    updateScrim();
+}
+function closeAll() {
+    closeMenu(); closeStudio();
+    if (focusBefore && focusBefore.isConnected) focusBefore.focus();
+}
+function bindTriggerDrag() {
+    let start = null;
+    let suppressNextClick = false;
+    elements.trigger.addEventListener('click', event => {
+        if (!suppressNextClick) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        suppressNextClick = false;
+    }, true);
+    elements.trigger.addEventListener('pointerdown', event => {
+        if (!event.isPrimary) return;
+        revealTrigger();
+        start = { y: event.clientY, top: settings.navigation.triggerTop, pointer: event.pointerId, moved: false };
+        elements.trigger.setPointerCapture(event.pointerId);
+    });
+    elements.trigger.addEventListener('pointermove', event => {
+        if (!start || event.pointerId !== start.pointer) return;
+        if (Math.abs(event.clientY - start.y) > 7) start.moved = true;
+        if (!start.moved) return;
+        settings.navigation.triggerTop = clamp(start.top + ((event.clientY - start.y) / window.innerHeight * 100), 8, 90, 43);
+        elements.trigger.style.top = `${settings.navigation.triggerTop}%`;
+    });
+    elements.trigger.addEventListener('pointerup', event => {
+        if (!start || event.pointerId !== start.pointer) return;
+        if (start.moved) {
+            event.preventDefault();
+            suppressNextClick = true;
+            persist();
+            setTimeout(() => { suppressNextClick = false; }, 200);
+        }
+        start = null;
+        scheduleFade();
+    });
+    elements.trigger.addEventListener('pointercancel', () => { start = null; scheduleFade(); });
+}
+
+function applyTheme() {
+    if (!settings) return;
+    const root = document.documentElement;
+    const s = settings.style;
+    const vars = {
+        '--stui-model-font': s.modelFont === 'inherit' ? 'inherit' : `"${s.modelFont}"`,
+        '--stui-user-font': s.userFont === 'inherit' ? 'inherit' : `"${s.userFont}"`,
+        '--stui-model-size': `${s.modelSize}px`, '--stui-user-size': `${s.userSize}px`,
+        '--stui-model-color': s.modelColor, '--stui-user-color': s.userColor,
+        '--stui-line-height': String(s.lineHeight),
+        '--stui-card-border': s.cardBorder === 'none' ? 'none' : `${s.cardBorderWidth}px ${s.cardBorder} ${s.cardBorderColor}`,
+        '--stui-card-radius': `${s.cardRadius}px`,
+        '--stui-card-color': hexRgba(s.cardColor, s.cardAlpha),
+        '--stui-card-padding': `${s.cardPadding}px`,
+        '--stui-avatar-size': `${s.avatarSize}px`,
+        '--stui-avatar-radius': s.avatarShape === 'circle' ? '50%' : s.avatarShape === 'square' ? '0' : '14px',
+        '--stui-avatar-border': `${s.avatarBorderWidth}px solid ${s.avatarBorderColor}`,
+        '--stui-chat-overlay': hexRgba(s.chatColor, s.chatAlpha),
+        '--stui-icon-color': s.iconColor, '--stui-icon-size': `${s.iconSize}px`,
+    };
+    for (const [name, value] of Object.entries(vars)) root.style.setProperty(name, value);
+    document.body.classList.toggle('stui-hide-top', settings.navigation.hideTopBar);
+    document.body.dataset.stuiAvatarPosition = s.avatarPosition;
+    const n = settings.navigation;
+    document.body.dataset.stuiTriggerSide = n.triggerSide;
+    elements.trigger.style.top = `${settings.navigation.triggerTop}%`;
+    root.style.setProperty('--stui-trigger-width', `${n.triggerWidth}px`);
+    root.style.setProperty('--stui-trigger-height', `${n.triggerHeight}px`);
+    root.style.setProperty('--stui-trigger-background', n.triggerColor);
+    root.style.setProperty('--stui-trigger-icon-color', n.triggerIconColor);
+    root.style.setProperty('--stui-trigger-opacity', String(n.triggerOpacity));
+    root.style.setProperty('--stui-trigger-faded-opacity', String(Math.min(n.fadeOpacity, n.triggerOpacity)));
+    const arrow = elements.trigger.querySelector('i');
+    arrow.classList.toggle('fa-chevron-right', n.triggerSide === 'left');
+    arrow.classList.toggle('fa-chevron-left', n.triggerSide === 'right');
+    scheduleFade();
+    renderDecorations();
+}
+
+function field(label, key, type, options = {}) {
+    const value = key.startsWith('navigation.') ? settings.navigation[key.slice(11)] : settings.style[key.slice(6)];
+    const id = `stui-input-${key.replace(/\W/g, '-')}`;
+    const name = `<label for="${id}">${label}</label>`;
+    if (type === 'select') {
+        return `<div class="stui-field">${name}<select id="${id}" data-field="${key}">${options.values.map(([v, l]) => `<option value="${v}" ${value === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>`;
+    }
+    if (type === 'checkbox') return `<label class="stui-field stui-check"><span>${label}</span><input id="${id}" type="checkbox" data-field="${key}" ${value ? 'checked' : ''}></label>`;
+    if (type === 'range') return `<div class="stui-field">${name}<div class="stui-range"><input id="${id}" type="range" min="${options.min}" max="${options.max}" step="${options.step || 1}" value="${value}" data-field="${key}"><output for="${id}">${value}${options.unit || ''}</output></div></div>`;
+    return `<div class="stui-field">${name}<input id="${id}" type="color" value="${value}" data-field="${key}"></div>`;
+}
+function renderTabs() {
+    elements.tabs.replaceChildren();
+    for (const [key, label] of TABS) {
+        const tab = document.createElement('button');
+        tab.type = 'button';
+        tab.textContent = label;
+        tab.className = key === chosenTab ? 'stui-tab stui-selected' : 'stui-tab';
+        tab.dataset.tab = key;
+        tab.setAttribute('role', 'tab');
+        tab.setAttribute('aria-selected', String(key === chosenTab));
+        elements.tabs.append(tab);
+    }
+}
+function renderTab() {
+    const fontOptions = FONTS.map(name => [name, name === 'inherit' ? 'Как в SillyTavern' : name]);
+    let html = '';
+    switch (chosenTab) {
+        case 'text':
+            html = `<h3>Ответы модели</h3>${field('Шрифт модели', 'style.modelFont', 'select', {values: fontOptions})}${field('Размер текста', 'style.modelSize', 'range', {min:12,max:32,unit:' px'})}${field('Цвет текста', 'style.modelColor', 'color')}
+              <h3>Мои сообщения</h3>${field('Мой шрифт', 'style.userFont', 'select', {values: fontOptions})}${field('Мой размер текста', 'style.userSize', 'range', {min:12,max:32,unit:' px'})}${field('Мой цвет текста', 'style.userColor', 'color')}
+              <h3>Общее</h3>${field('Межстрочный интервал', 'style.lineHeight', 'range', {min:1.1,max:2.5,step:.05})}`;
+            break;
+        case 'messages':
+            html = `<h3>Карточки сообщений</h3>${field('Рамка', 'style.cardBorder', 'select', {values:[['none','Нет'],['solid','Сплошная'],['dashed','Пунктир'],['double','Двойная']]})}${field('Толщина рамки', 'style.cardBorderWidth', 'range', {min:0,max:6,unit:' px'})}${field('Цвет рамки', 'style.cardBorderColor', 'color')}${field('Закругление углов', 'style.cardRadius', 'range', {min:0,max:36,unit:' px'})}${field('Отступы внутри', 'style.cardPadding', 'range', {min:0,max:30,unit:' px'})}
+              <h3>Подложка текста</h3>${field('Цвет карточки', 'style.cardColor', 'color')}${field('Непрозрачность карточки', 'style.cardAlpha', 'range', {min:0,max:1,step:.05})}${field('Цвет фона чата', 'style.chatColor', 'color')}${field('Непрозрачность подложки чата', 'style.chatAlpha', 'range', {min:0,max:1,step:.05})}`;
+            break;
+        case 'avatars':
+            html = `<h3>Аватарки в переписке</h3>${field('Размер', 'style.avatarSize', 'range', {min:24,max:120,unit:' px'})}${field('Форма', 'style.avatarShape', 'select', {values:[['circle','Круг'],['rounded','Скруглённый квадрат'],['square','Квадрат']]})}${field('Расположение', 'style.avatarPosition', 'select', {values:[['side','Сбоку'],['top-center','Над текстом, по центру'],['top-left','Над текстом, слева']]})}${field('Толщина рамки', 'style.avatarBorderWidth', 'range', {min:0,max:6,unit:' px'})}${field('Цвет рамки', 'style.avatarBorderColor', 'color')}`;
+            break;
+        case 'icons':
+            html = `<h3>Значки меню</h3><p>Меняй стандартные значки выдвижного меню. Можно выбрать встроенную иконку или загрузить PNG/JPEG/WebP/GIF (до 90 КБ).</p><div id="stui-icon-rows"></div><h3>Цвет и размер</h3>${field('Цвет обычных значков', 'style.iconColor', 'color')}${field('Размер значков', 'style.iconSize', 'range', {min:14,max:34,unit:' px'})}<p class="stui-hint">В этой версии заменяются значки левого меню, а не все внутренние кнопки SillyTavern.</p>`;
+            break;
+        case 'decorations':
+            html = `<h3>Перетаскиваемый декор</h3><p>Добавь украшения на экран чата. Удерживай символ и перетаскивай пальцем; положение сохранится.</p><div id="stui-decoration-palette"></div><div id="stui-decoration-list"></div><p class="stui-hint">Декор расположен поверх чата и не передаётся модели.</p>`;
+            break;
+        case 'profiles':
+            html = `<h3>Мои темы</h3><p>Сохраняй оформление и быстро меняй его. Можно перенести настройки на другой телефон.</p><div class="stui-save-row"><input type="text" id="stui-profile-name" maxlength="40" placeholder="Название темы"><button type="button" data-action="save-profile">Сохранить</button></div><div id="stui-profile-list"></div><div class="stui-action-row"><button type="button" data-action="export">Экспорт JSON</button><button type="button" data-action="import">Импорт JSON</button></div><input id="stui-import-file" type="file" accept=".json,application/json" hidden>`;
+            break;
+        case 'general':
+            html = `<h3>Навигация</h3>${field('Скрыть стандартные верхние иконки', 'navigation.hideTopBar', 'checkbox')}${field('Сторона стрелки', 'navigation.triggerSide', 'select', {values:[['left','Слева'],['right','Справа']]})}${field('Положение по высоте', 'navigation.triggerTop', 'range', {min:8,max:90,unit:' %'})}
+              <p class="stui-hint">Стрелку можно перетаскивать пальцем вверх и вниз. При смене стороны она остаётся полностью видимой.</p>
+              <h3>Внешний вид стрелки</h3>${field('Ширина стрелки', 'navigation.triggerWidth', 'range', {min:30,max:74,step:1,unit:' px'})}${field('Высота стрелки', 'navigation.triggerHeight', 'range', {min:55,max:120,step:1,unit:' px'})}${field('Цвет подложки', 'navigation.triggerColor', 'color')}${field('Цвет значка', 'navigation.triggerIconColor', 'color')}${field('Непрозрачность стрелки', 'navigation.triggerOpacity', 'range', {min:.3,max:1,step:.05})}
+              <h3>Автоматическое затухание</h3>${field('Включить затухание при бездействии', 'navigation.autoFade', 'checkbox')}${field('Прозрачность после затухания', 'navigation.fadeOpacity', 'range', {min:.2,max:.9,step:.05})}${field('Задержка перед затуханием', 'navigation.fadeDelay', 'range', {min:2,max:15,step:1,unit:' с'})}
+              <p class="stui-hint">При касании стрелка вновь становится яркой и открывает меню. Затухание не прячет кнопку полностью: её всегда можно найти. Выключи эту функцию, если предпочитаешь постоянную яркость.</p>
+              <h3>Восстановление</h3><div class="stui-action-row"><button type="button" data-action="reset-style" class="stui-danger">Сбросить оформление</button><button type="button" data-action="show-native">Показать верхнее меню</button></div>
+              <p class="stui-hint">Если внешний вид конфликтует с другой темой, сначала покажи штатную панель, затем отключи UI Studio в Extensions.</p>`;
+            break;
+    }
+    elements.tabContent.innerHTML = html;
+    if (chosenTab === 'icons') renderIconRows();
+    if (chosenTab === 'decorations') renderDecorationRows();
+    if (chosenTab === 'profiles') renderProfileRows();
+}
+function bindStudio() {
+    elements.tabs.addEventListener('click', event => {
+        const key = event.target.closest('[data-tab]')?.dataset.tab;
+        if (!key) return;
+        chosenTab = key; renderTabs(); renderTab();
+    });
+    elements.tabContent.addEventListener('input', event => {
+        const input = event.target.closest('[data-field]');
+        if (!input) return;
+        const [section, name] = input.dataset.field.split('.');
+        if (!Object.hasOwn(DEFAULTS[section] || {}, name)) return;
+        settings[section][name] = input.type === 'checkbox' ? input.checked : input.type === 'range' ? Number(input.value) : input.value;
+        const output = elements.tabContent.querySelector(`output[for="${input.id}"]`);
+        if (output) output.textContent = `${input.value}${input.dataset.field === 'navigation.triggerTop' ? ' %' : name === 'fadeDelay' ? ' с' : ['modelSize','userSize','cardBorderWidth','cardRadius','cardPadding','avatarSize','avatarBorderWidth','iconSize','triggerWidth','triggerHeight'].includes(name) ? ' px' : ''}`;
+        settings = normalize(settings);
+        persistAndApply();
+    });
+    elements.tabContent.addEventListener('change', event => {
+        const input = event.target;
+        if (input.matches('[data-icon-choice]')) {
+            const id = input.dataset.iconChoice;
+            settings.icons[id] = { klass: ICONS.includes(input.value) ? input.value : 'fa-gear', image: '' };
+            persist(); syncNav(); renderIconRows();
+        }
+        if (input.matches('[data-icon-file]')) handleIconFile(input);
+        if (input.id === 'stui-import-file') handleImport(input);
+    });
+    elements.tabContent.addEventListener('click', event => {
+        const decoAdd = event.target.closest('[data-add-decoration]');
+        if (decoAdd) return addDecoration(decoAdd.dataset.addDecoration);
+        const decoDel = event.target.closest('[data-remove-decoration]');
+        if (decoDel) return removeDecoration(decoDel.dataset.removeDecoration);
+        const iconReset = event.target.closest('[data-reset-icon]');
+        if (iconReset) { delete settings.icons[iconReset.dataset.resetIcon]; persist(); syncNav(); renderIconRows(); return; }
+        const profileLoad = event.target.closest('[data-load-profile]');
+        if (profileLoad) return loadProfile(profileLoad.dataset.loadProfile);
+        const profileDelete = event.target.closest('[data-delete-profile]');
+        if (profileDelete) return deleteProfile(profileDelete.dataset.deleteProfile);
+        const action = event.target.closest('[data-action]')?.dataset.action;
+        if (action === 'save-profile') saveProfile();
+        if (action === 'export') exportSettings();
+        if (action === 'import') elements.tabContent.querySelector('#stui-import-file')?.click();
+        if (action === 'reset-style') resetStyle();
+        if (action === 'show-native') { settings.navigation.hideTopBar = false; persistAndApply(); renderTab(); closeStudio(); }
+    });
+}
+
+function renderIconRows() {
+    const list = elements.tabContent.querySelector('#stui-icon-rows');
+    if (!list) return;
+    list.replaceChildren();
+    for (const item of navItems) {
+        const row = document.createElement('div');
+        row.className = 'stui-icon-row';
+        const name = document.createElement('strong');
+        name.textContent = item.label;
+        const controls = document.createElement('div');
+        controls.className = 'stui-icon-controls';
+        const select = document.createElement('select');
+        select.dataset.iconChoice = item.id;
+        for (const klass of ICONS) {
+            const option = document.createElement('option');
+            option.value = klass;
+            option.textContent = klass.replace('fa-', '');
+            if ((settings.icons[item.id]?.klass || item.icon) === klass) option.selected = true;
+            select.append(option);
+        }
+        const upload = document.createElement('label');
+        upload.className = 'stui-upload-button';
+        upload.textContent = 'Загрузить';
+        const file = document.createElement('input');
+        file.type = 'file'; file.accept = 'image/png,image/jpeg,image/webp,image/gif';
+        file.dataset.iconFile = item.id;
+        upload.append(file);
+        const reset = document.createElement('button');
+        reset.type = 'button'; reset.textContent = '↺'; reset.title = 'Стандартная иконка'; reset.dataset.resetIcon = item.id;
+        controls.append(select, upload, reset);
+        row.append(name, controls);
+        list.append(row);
+    }
+}
+async function handleIconFile(input) {
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type) || file.size > 90000) {
+        alert('Нужен файл PNG, JPEG, WebP или GIF размером не более 90 КБ.'); input.value = ''; return;
+    }
+    try {
+        const data = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+        });
+        const safe = safeImage(data);
+        if (!safe) throw new Error('Недопустимое изображение');
+        settings.icons[input.dataset.iconFile] = { klass: '', image: safe };
+        persist(); syncNav(); renderIconRows();
+    } catch (error) { alert(`Не получилось загрузить иконку: ${error.message}`); }
+}
+
+function renderDecorations() {
+    if (!elements.decorations) return;
+    const current = new Map([...elements.decorations.children].map(node => [node.dataset.decoId, node]));
+    for (const item of settings.decorations) {
+        let node = current.get(item.id);
+        if (!node) {
+            node = document.createElement('button');
+            node.type = 'button';
+            node.className = 'stui-decoration';
+            node.dataset.decoId = item.id;
+            node.title = 'Перетащи меня';
+            node.setAttribute('aria-label', `Украшение ${item.symbol}, перетащить`);
+            node.addEventListener('pointerdown', startDecorationDrag);
+            node.addEventListener('pointermove', moveDecorationDrag);
+            node.addEventListener('pointerup', endDecorationDrag);
+            node.addEventListener('pointercancel', endDecorationDrag);
+            elements.decorations.append(node);
+        }
+        node.textContent = item.symbol;
+        node.style.left = `${item.x}%`;
+        node.style.top = `${item.y}%`;
+        current.delete(item.id);
+    }
+    current.forEach(node => node.remove());
+}
+function startDecorationDrag(event) {
+    const item = settings.decorations.find(d => d.id === event.currentTarget.dataset.decoId);
+    if (!item) return;
+    event.preventDefault();
+    dragState = { id: item.id, pointer: event.pointerId };
+    event.currentTarget.setPointerCapture(event.pointerId);
+}
+function moveDecorationDrag(event) {
+    if (!dragState || dragState.pointer !== event.pointerId || dragState.id !== event.currentTarget.dataset.decoId) return;
+    const item = settings.decorations.find(d => d.id === dragState.id);
+    if (!item) return;
+    item.x = clamp(event.clientX / window.innerWidth * 100, 3, 97, 50);
+    item.y = clamp(event.clientY / window.innerHeight * 100, 3, 97, 50);
+    event.currentTarget.style.left = `${item.x}%`;
+    event.currentTarget.style.top = `${item.y}%`;
+}
+function endDecorationDrag(event) {
+    if (!dragState || dragState.pointer !== event.pointerId) return;
+    dragState = null;
+    persist();
+}
+function addDecoration(symbol) {
+    if (!['✦', '☾', '♡', '❀', '✧', '🦋', '🌙', '✨'].includes(symbol) || settings.decorations.length >= 15) return;
+    settings.decorations.push({ id: `d${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, symbol, x: 75, y: 30 });
+    persistAndApply(); renderDecorationRows();
+}
+function removeDecoration(id) {
+    settings.decorations = settings.decorations.filter(item => item.id !== id);
+    persistAndApply(); renderDecorationRows();
+}
+function renderDecorationRows() {
+    const palette = elements.tabContent.querySelector('#stui-decoration-palette');
+    const list = elements.tabContent.querySelector('#stui-decoration-list');
+    if (!palette || !list) return;
+    palette.replaceChildren(); list.replaceChildren();
+    for (const symbol of ['✦', '☾', '♡', '❀', '✧', '🦋', '🌙', '✨']) {
+        const button = document.createElement('button');
+        button.type = 'button'; button.textContent = symbol;
+        button.dataset.addDecoration = symbol;
+        button.title = 'Добавить украшение';
+        palette.append(button);
+    }
+    for (const item of settings.decorations) {
+        const row = document.createElement('div'); row.className = 'stui-list-row';
+        const label = document.createElement('span'); label.textContent = `${item.symbol} — ${Math.round(item.x)}%, ${Math.round(item.y)}%`;
+        const remove = document.createElement('button'); remove.type = 'button';
+        remove.textContent = 'Удалить'; remove.dataset.removeDecoration = item.id;
+        row.append(label, remove); list.append(row);
+    }
+}
+function snapshotProfile() {
+    return structuredClone({ style: settings.style, icons: settings.icons, decorations: settings.decorations });
+}
+function saveProfile() {
+    const input = elements.tabContent.querySelector('#stui-profile-name');
+    const name = plainText(input.value.trim()).slice(0, 40);
+    if (!name || DANGEROUS_KEYS.has(name)) { alert('Введи другое название темы.'); return; }
+    if (!settings.profiles[name] && Object.keys(settings.profiles).length >= 15) { alert('Можно сохранить до 15 тем.'); return; }
+    settings.profiles[name] = snapshotProfile();
+    input.value = '';
+    persist(); renderProfileRows();
+}
+function loadProfile(name) {
+    const profile = settings.profiles[name];
+    if (!profile) return;
+    const clean = normalize(profile, false);
+    settings.style = clean.style; settings.icons = clean.icons; settings.decorations = clean.decorations;
+    persistAndApply(); syncNav(); renderTab();
+}
+function deleteProfile(name) {
+    if (!settings.profiles[name] || !confirm(`Удалить сохранённую тему «${name}»?`)) return;
+    delete settings.profiles[name]; persist(); renderProfileRows();
+}
+function renderProfileRows() {
+    const list = elements.tabContent.querySelector('#stui-profile-list');
+    if (!list) return;
+    list.replaceChildren();
+    for (const name of Object.keys(settings.profiles).sort()) {
+        const row = document.createElement('div'); row.className = 'stui-list-row';
+        const label = document.createElement('span'); label.textContent = name;
+        const load = document.createElement('button'); load.type = 'button'; load.textContent = 'Выбрать'; load.dataset.loadProfile = name;
+        const del = document.createElement('button'); del.type = 'button'; del.textContent = '×'; del.title = 'Удалить'; del.dataset.deleteProfile = name;
+        row.append(label, load, del); list.append(row);
+    }
+}
+function exportSettings() {
+    const blob = new Blob([JSON.stringify({ format: 'sillytavern-ui-studio', version: 1, settings }, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a'); link.href = url; link.download = 'sillytavern-ui-studio-theme.json';
+    document.body.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+async function handleImport(input) {
+    const file = input.files?.[0]; input.value = '';
+    if (!file) return;
+    if (file.size > 1500000) { alert('Файл настроек слишком большой (максимум 1,5 МБ).'); return; }
+    try {
+        const imported = JSON.parse(await file.text());
+        if (imported?.format !== 'sillytavern-ui-studio' || imported.version !== 1 || !imported.settings) throw new Error('Неизвестный формат темы');
+        if (!confirm('Заменить текущие настройки UI Studio настройками из файла?')) return;
+        settings = normalize(imported.settings);
+        persistAndApply(); syncNav(); renderTab();
+    } catch (error) { alert(`Не удалось импортировать тему: ${error.message}`); }
+}
+function resetStyle() {
+    if (!confirm('Сбросить оформление, иконки и декор? Сохранённые темы останутся.')) return;
+    const keepProfiles = settings.profiles;
+    const keepNavigation = settings.navigation;
+    settings = normalize({ profiles: keepProfiles, navigation: keepNavigation });
+    persistAndApply(); syncNav(); renderTab();
+}
+function dispose() {
+    if (!started) return;
+    clearTimeout(fadeTimer);
+    fadeTimer = null;
+    observer?.disconnect();
+    document.removeEventListener('keydown', onKeyDown);
+    for (const item of ['trigger','scrim','menu','studio','decorations']) elements[item]?.remove();
+    document.body.classList.remove('stui-active', 'stui-hide-top', 'stui-overlay-open', 'stui-trigger-faded');
+    delete document.body.dataset.stuiAvatarPosition;
+    delete document.body.dataset.stuiTriggerSide;
+    for (const property of [...document.documentElement.style]) if (property.startsWith('--stui-')) document.documentElement.style.removeProperty(property);
+    started = false;
+}
+function initialize(attempt = 0) {
+    if (started) return;
+    holder = document.querySelector('#top-settings-holder');
+    if (!holder || !window.SillyTavern?.getContext) {
+        if (attempt < 40) setTimeout(() => initialize(attempt + 1), 500);
+        return;
+    }
+    context = window.SillyTavern.getContext();
+    if (!context?.extensionSettings || !context.saveSettingsDebounced) {
+        if (attempt < 40) setTimeout(() => initialize(attempt + 1), 500);
+        return;
+    }
+    started = true;
+    settings = normalize(context.extensionSettings[KEY]);
+    context.extensionSettings[KEY] = settings;
+    document.body.classList.add('stui-active');
+    createUI();
+    syncNav();
+    applyTheme();
+    observer = new MutationObserver(mutations => {
+        if (mutations.some(m => m.type === 'childList' && (m.target === holder))) syncNav();
+    });
+    observer.observe(holder, { childList: true });
+    console.info('[UI Studio] Initialized');
+}
+export function onDisable() { dispose(); }
+export function onEnable() { initialize(); }
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => initialize(), { once: true });
+else initialize();

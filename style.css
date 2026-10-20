@@ -1,0 +1,396 @@
+/* UI Studio styles are scoped to the active extension. */
+body.stui-active {
+    --stui-panel: rgba(25, 22, 33, 0.97);
+    --stui-surface: rgba(255, 255, 255, 0.055);
+    --stui-hairline: rgba(216, 198, 239, 0.20);
+    --stui-muted: #b7aebf;
+    --stui-accent: #d7b7f6;
+}
+
+/* Keep the native panels in the document so original SillyTavern click handlers work. */
+body.stui-hide-top #top-settings-holder {
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    pointer-events: none;
+}
+body.stui-hide-top #top-settings-holder > .drawer {
+    height: 0 !important;
+    min-height: 0 !important;
+}
+body.stui-hide-top #top-settings-holder > .drawer > .drawer-toggle {
+    visibility: hidden !important;
+    pointer-events: none !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+}
+body.stui-hide-top #top-settings-holder .drawer-content {
+    pointer-events: auto;
+}
+
+body.stui-active #stui-trigger,
+body.stui-active #stui-menu button,
+body.stui-active #stui-studio button,
+body.stui-active #stui-decorations button {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+body.stui-active #stui-trigger {
+    position: fixed;
+    top: 43%;
+    left: 0;
+    right: auto;
+    z-index: 6200;
+    display: grid;
+    place-items: center;
+    width: var(--stui-trigger-width, 35px);
+    height: var(--stui-trigger-height, 77px);
+    padding: 0 5px 0 0;
+    border: 1px solid rgba(255, 255, 255, .16);
+    border-left: 0;
+    border-radius: 0 90px 90px 0;
+    color: var(--stui-trigger-icon-color, #f4edf9);
+    background: var(--stui-trigger-background, #4c4956);
+    opacity: var(--stui-trigger-opacity, .92);
+    box-shadow: 0 3px 18px #0004;
+    backdrop-filter: blur(9px);
+    -webkit-backdrop-filter: blur(9px);
+    touch-action: none;
+    user-select: none;
+    font-size: 22px;
+    line-height: 1;
+    transition: opacity .25s ease, background-color .2s ease;
+}
+body.stui-active[data-stui-trigger-side="right"] #stui-trigger {
+    left: auto;
+    right: 0;
+    padding: 0 0 0 5px;
+    border-left: 1px solid rgba(255, 255, 255, .16);
+    border-right: 0;
+    border-radius: 90px 0 0 90px;
+}
+body.stui-active #stui-trigger:active { filter: brightness(1.16); }
+body.stui-active.stui-trigger-faded #stui-trigger { opacity: var(--stui-trigger-faded-opacity, .48); }
+body.stui-active #stui-trigger:focus-visible { opacity: var(--stui-trigger-opacity, .92); }
+body.stui-active.stui-overlay-open #stui-trigger { opacity: 0; pointer-events: none; }
+body.stui-active #stui-trigger:focus-visible,
+body.stui-active #stui-menu button:focus-visible,
+body.stui-active #stui-studio button:focus-visible,
+body.stui-active #stui-studio input:focus-visible,
+body.stui-active #stui-studio select:focus-visible {
+    outline: 2px solid #e1c7ff;
+    outline-offset: 2px;
+}
+
+body.stui-active #stui-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 6100;
+    background: rgba(0, 0, 0, .50);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+body.stui-active #stui-scrim[hidden] { display: none !important; }
+
+body.stui-active #stui-menu,
+body.stui-active #stui-studio {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    z-index: 6150;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    background: var(--stui-panel);
+    color: #f1edf5;
+    font: 15px/1.45 system-ui, sans-serif;
+    border: 1px solid var(--stui-hairline);
+    box-shadow: 0 12px 32px #0008;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform .22s ease, visibility .22s;
+    height: 100vh;
+    height: 100dvh;
+}
+body.stui-active #stui-menu {
+    left: 0;
+    width: min(330px, 88vw);
+    width: min(330px, 88dvw);
+    border-radius: 0 18px 18px 0;
+    transform: translateX(-105%);
+}
+body.stui-active #stui-studio {
+    right: 0;
+    width: min(450px, 100vw);
+    width: min(450px, 100dvw);
+    transform: translateX(105%);
+}
+body.stui-active #stui-menu.stui-open,
+body.stui-active #stui-studio.stui-open {
+    transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
+}
+body.stui-active .stui-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex: none;
+    min-height: 80px;
+    padding: calc(14px + env(safe-area-inset-top, 0px)) 17px 12px;
+    border-bottom: 1px solid var(--stui-hairline);
+}
+body.stui-active .stui-panel-header small {
+    font-size: 10px;
+    letter-spacing: .19em;
+    color: var(--stui-accent);
+}
+body.stui-active .stui-panel-header h2 {
+    font-size: 20px;
+    font-weight: 650;
+    margin: 3px 0 0;
+    color: #f5edfc;
+}
+body.stui-active .stui-icon-button {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    flex: none;
+    border: 1px solid var(--stui-hairline);
+    border-radius: 11px;
+    background: var(--stui-surface);
+    color: #fff;
+}
+body.stui-active .stui-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+}
+body.stui-active #stui-menu .stui-scroll {
+    padding: 12px 10px calc(20px + env(safe-area-inset-bottom, 0px));
+}
+body.stui-active .stui-menu-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 47px;
+    gap: 14px;
+    padding: 10px 13px;
+    margin: 1px 0;
+    border: 0;
+    border-radius: 12px;
+    text-align: left;
+    color: #f2ebf7;
+    background: transparent;
+    font: inherit;
+}
+body.stui-active .stui-menu-item > i:first-child,
+body.stui-active .stui-menu-item > img:first-child {
+    width: 26px;
+    height: 26px;
+    flex: 0 0 26px;
+    display: grid;
+    place-items: center;
+    font-size: var(--stui-icon-size, 19px);
+    color: var(--stui-icon-color, #dac9f5);
+    object-fit: contain;
+}
+body.stui-active .stui-menu-item span { flex: 1; }
+body.stui-active .stui-menu-item:active,
+body.stui-active .stui-menu-item:hover { background: rgba(207, 183, 237, .13); }
+body.stui-active .stui-menu-divider { margin: 13px 7px; border-top: 1px solid var(--stui-hairline); }
+body.stui-active .stui-studio-link { background: rgba(176, 130, 228, .14); font-weight: 650; }
+body.stui-active .stui-studio-link > i:last-child { font-size: 12px; opacity: .7; }
+
+body.stui-active #stui-tabs {
+    display: flex;
+    flex: none;
+    overflow-x: auto;
+    gap: 5px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--stui-hairline);
+    scrollbar-width: none;
+}
+body.stui-active #stui-tabs::-webkit-scrollbar { display: none; }
+body.stui-active #stui-tabs .stui-tab {
+    flex: none;
+    padding: 8px 11px;
+    border: 1px solid var(--stui-hairline);
+    border-radius: 999px;
+    background: var(--stui-surface);
+    color: #d6ccdd;
+    font: 12px system-ui, sans-serif;
+}
+body.stui-active #stui-tabs .stui-tab.stui-selected {
+    color: #231a2a;
+    background: #dec2fa;
+    border-color: #dec2fa;
+}
+body.stui-active .stui-settings {
+    padding: 14px 16px calc(30px + env(safe-area-inset-bottom, 0px));
+}
+body.stui-active .stui-settings h3 {
+    margin: 15px 0 9px;
+    padding: 0 0 5px;
+    color: #f1dffa;
+    font-size: 15px;
+    font-weight: 650;
+    border-bottom: 1px solid var(--stui-hairline);
+}
+body.stui-active .stui-settings h3:first-child { margin-top: 0; }
+body.stui-active .stui-settings p { color: var(--stui-muted); margin: 8px 0 14px; font-size: 13px; }
+body.stui-active .stui-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 15px 0;
+    font-size: 13px;
+}
+body.stui-active .stui-field.stui-check { flex-direction: row; justify-content: space-between; align-items: center; }
+body.stui-active .stui-field label { color: #e7e0ed; font: inherit; }
+body.stui-active .stui-field input[type="color"] {
+    width: 100%;
+    height: 37px;
+    padding: 2px 5px;
+    border: 1px solid var(--stui-hairline);
+    border-radius: 9px;
+    background: var(--stui-surface);
+}
+body.stui-active .stui-field select,
+body.stui-active .stui-save-row input,
+body.stui-active .stui-icon-row select {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-height: 40px;
+    padding: 8px;
+    border: 1px solid var(--stui-hairline);
+    border-radius: 9px;
+    background: #332c3f;
+    color: #f7f2fa;
+    font: inherit;
+}
+body.stui-active .stui-field input[type="checkbox"] { width: 21px; height: 21px; accent-color: #c8a5f2; }
+body.stui-active .stui-range { display: flex; align-items: center; gap: 12px; }
+body.stui-active .stui-range input { flex: 1 1 auto; min-width: 0; accent-color: #d4b2fa; }
+body.stui-active .stui-range output { flex: 0 0 54px; color: #d7c4ee; text-align: right; font-variant-numeric: tabular-nums; }
+body.stui-active .stui-settings button,
+body.stui-active .stui-upload-button,
+body.stui-active .stui-footer button {
+    min-height: 34px;
+    padding: 7px 10px;
+    border: 1px solid var(--stui-hairline);
+    border-radius: 9px;
+    background: rgba(187, 149, 226, .16);
+    color: #f6edfa;
+    font: 12px system-ui, sans-serif;
+}
+body.stui-active .stui-settings button:active { background: rgba(187, 149, 226, .32); }
+body.stui-active .stui-settings .stui-danger { border-color: #8c5868; color: #f1c8d0; }
+body.stui-active .stui-action-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+body.stui-active .stui-save-row { display: flex; gap: 8px; margin: 14px 0; }
+body.stui-active .stui-save-row input { flex: 1; min-width: 0; }
+body.stui-active .stui-list-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--stui-hairline);
+}
+body.stui-active .stui-list-row span { flex: 1; overflow-wrap: anywhere; }
+body.stui-active .stui-icon-row { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--stui-hairline); }
+body.stui-active .stui-icon-row strong { font-weight: 550; }
+body.stui-active .stui-icon-controls { display: flex; gap: 7px; align-items: center; }
+body.stui-active .stui-icon-controls select { flex: 1 1 30%; min-width: 0; }
+body.stui-active .stui-upload-button { display: grid; place-items: center; position: relative; overflow: hidden; flex: none; }
+body.stui-active .stui-upload-button input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+body.stui-active #stui-decoration-palette { display: flex; gap: 7px; flex-wrap: wrap; }
+body.stui-active #stui-decoration-palette button { font-size: 20px; min-width: 42px; min-height: 42px; }
+body.stui-active .stui-footer {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 14px calc(11px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--stui-hairline);
+    color: var(--stui-muted);
+    font-size: 11px;
+}
+
+/* The actual SillyTavern chat is the live preview. */
+body.stui-active #chat { background-color: var(--stui-chat-overlay, transparent) !important; }
+body.stui-active #chat .mes:not([is_system="true"]) {
+    box-sizing: border-box;
+    margin: 3px 0;
+    padding: var(--stui-card-padding, 10px) !important;
+    border: var(--stui-card-border, none) !important;
+    border-radius: var(--stui-card-radius, 12px) !important;
+    background-color: var(--stui-card-color, transparent) !important;
+}
+body.stui-active #chat .mes[is_user="false"] .mes_text,
+body.stui-active #chat .mes[is_user="false"] .mes_text p {
+    font-family: var(--stui-model-font, inherit) !important;
+    font-size: var(--stui-model-size, 17px) !important;
+    color: var(--stui-model-color, inherit);
+    line-height: var(--stui-line-height, 1.55) !important;
+}
+body.stui-active #chat .mes[is_user="true"] .mes_text,
+body.stui-active #chat .mes[is_user="true"] .mes_text p {
+    font-family: var(--stui-user-font, inherit) !important;
+    font-size: var(--stui-user-size, 17px) !important;
+    color: var(--stui-user-color, inherit);
+    line-height: var(--stui-line-height, 1.55) !important;
+}
+body.stui-active #chat .mes:not([is_system="true"]) .avatar,
+body.stui-active #chat .mes:not([is_system="true"]) .avatar img {
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    width: var(--stui-avatar-size, 44px) !important;
+    height: var(--stui-avatar-size, 44px) !important;
+    border-radius: var(--stui-avatar-radius, 50%) !important;
+}
+body.stui-active #chat .mes:not([is_system="true"]) .avatar img {
+    border: var(--stui-avatar-border, none) !important;
+    object-fit: cover;
+}
+body.stui-active[data-stui-avatar-position="top-center"] #chat .mes:not([is_system="true"]),
+body.stui-active[data-stui-avatar-position="top-left"] #chat .mes:not([is_system="true"]) { flex-direction: column; }
+body.stui-active[data-stui-avatar-position="top-center"] #chat .mes:not([is_system="true"]) .mesAvatarWrapper { align-self: center; }
+body.stui-active[data-stui-avatar-position="top-left"] #chat .mes:not([is_system="true"]) .mesAvatarWrapper { align-self: flex-start; }
+body.stui-active[data-stui-avatar-position^="top-"] #chat .mes:not([is_system="true"]) .mes_block { padding-left: 0; }
+
+body.stui-active #stui-decorations { position: fixed; inset: 0; z-index: 2050; pointer-events: none; }
+body.stui-active #stui-decorations .stui-decoration {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    min-width: 35px;
+    min-height: 35px;
+    padding: 0;
+    background: transparent;
+    color: #dfc7f7;
+    text-shadow: 0 2px 7px #1b1027c7;
+    border: none;
+    font-size: 28px;
+    line-height: 1;
+    pointer-events: auto;
+    user-select: none;
+    touch-action: none;
+}
+
+@media (max-width: 480px) {
+    body.stui-active #stui-menu { width: min(330px, 88vw); }
+    body.stui-active #stui-studio { width: 100%; width: 100dvw; border-radius: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    body.stui-active #stui-menu,
+    body.stui-active #stui-studio,
+    body.stui-active #stui-trigger { transition: none; }
+}

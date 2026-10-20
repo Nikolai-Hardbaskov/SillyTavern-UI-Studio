@@ -1,0 +1,14 @@
+{
+  "display_name": "UI Studio — Mobile Navigation & Themes",
+  "loading_order": 100,
+  "js": "index.js",
+  "css": "style.css",
+  "author": "UI Studio",
+  "version": "0.2.0",
+  "requires": [],
+  "optional": [],
+  "hooks": {
+    "enable": "onEnable",
+    "disable": "onDisable"
+  }
+}
