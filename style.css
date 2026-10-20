@@ -423,77 +423,15 @@ body.stui-active .stui-deco-search input {
     border: 1px solid var(--stui-hairline);
     color: #f7f2fa;
     background: #332c3f;
-    font: 13px system-ui, sans-serif;
+    font: 16px system-ui, sans-serif; /* Avoid browser zoom while pasting on iPhone. */
 }
 body.stui-active .stui-deco-search button {
     flex: 0 0 auto;
     min-height: 42px;
 }
-body.stui-active .stui-deco-remote-results {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 9px;
-}
-body.stui-active .stui-deco-pager {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    align-items: center;
-    margin: 8px 0 14px;
-    font: 12px system-ui, sans-serif;
-    color: var(--stui-muted);
-}
-body.stui-active .stui-deco-pager button[disabled] {
-    opacity: .42;
-    cursor: not-allowed;
-}
 body.stui-active .stui-settings a {
     color: #e3c7fb;
     text-decoration: underline;
-}
-body.stui-active #stui-decoration-filters {
-    display: flex;
-    gap: 7px;
-    flex-wrap: nowrap;
-    margin: 10px 0 14px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    padding-bottom: 5px;
-}
-body.stui-active #stui-decoration-filters .stui-deco-filter {
-    flex: 0 0 auto;
-    min-height: 36px;
-    padding: 7px 12px;
-    border-radius: 99px;
-    white-space: nowrap;
-}
-body.stui-active #stui-decoration-filters .stui-deco-filter.stui-selected {
-    background: #dcb7f9;
-    color: #261934;
-    border-color: #dcb7f9;
-}
-body.stui-active #stui-decoration-gallery {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 9px;
-}
-body.stui-active #stui-studio .stui-gallery-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-    padding: 10px 8px;
-    min-height: 120px;
-    text-align: center;
-}
-body.stui-active .stui-gallery-item img {
-    display: block;
-    max-width: 100%;
-    width: 100%;
-    height: 78px;
-    object-fit: contain;
 }
 body.stui-active .stui-deco-upload {
     display: flex;

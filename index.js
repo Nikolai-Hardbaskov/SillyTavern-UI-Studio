@@ -1,4 +1,4 @@
-/* SillyTavern UI Studio — mobile-first frontend extension. The optional art gallery uses Openclipart. */
+/* SillyTavern UI Studio — mobile-first frontend extension. Keep legacy art references for existing saved decorations. */
 const KEY = 'sillytavern_ui_studio';
 const PREFIX = 'stui';
 const ICONS = ['fa-sliders', 'fa-plug', 'fa-font', 'fa-book-atlas', 'fa-user-gear', 'fa-panorama', 'fa-cubes', 'fa-clock', 'fa-face-smile', 'fa-address-card', 'fa-palette', 'fa-star', 'fa-heart', 'fa-moon', 'fa-wand-magic-sparkles', 'fa-gear', 'fa-image', 'fa-book', 'fa-comments', 'fa-bars'];
@@ -208,7 +208,6 @@ const GALLERY = [
         "url": "https://openclipart.org/image/400px/261134"
     }
 ];
-const GALLERY_CATEGORIES = [{"id":"all","label":"Все"},{"id":"cozy","label":"Уют"},{"id":"flowers","label":"Цветы"},{"id":"nature","label":"Природа"},{"id":"winter","label":"Зима"},{"id":"vintage","label":"Винтаж"}];
 const FONTS = ['inherit', 'system-ui', 'Arial', 'Georgia', 'Verdana', 'Trebuchet MS', 'Times New Roman', 'Courier New', 'Tahoma', 'serif', 'sans-serif', 'monospace'];
 const NAV_META = {
     'ai-config-button': ['Chat Completion Presets', 'fa-sliders'],
@@ -254,22 +253,6 @@ let holder;
 let observer;
 let started = false;
 let chosenTab = 'text';
-let selectedGalleryCategory = 'all';
-let gallerySearchResults = [];
-let gallerySearchQuery = '';
-let gallerySearchPage = 1;
-let gallerySearchPages = 1;
-let gallerySearchStatus = 'Введи название предмета и нажми «Найти».';
-let gallerySearchLoading = false;
-let gallerySearchAbort = null;
-const SEARCH_WORDS = Object.freeze({
-    'цветы':'flowers','цветок':'flower','роза':'rose','розы':'roses','книги':'books','книга':'book','снег':'snow',
-    'снежинка':'snowflake','снежинки':'snowflakes','телефон':'telephone','часы':'clock','кот':'cat',
-    'кошка':'cat','собака':'dog','чай':'tea','кофе':'coffee','птица':'bird','ёлка':'christmas tree',
-    'елка':'christmas tree','дерево':'tree','листья':'leaves','лист':'leaf','гриб':'mushroom','ключ':'key',
-    'свеча':'candle','фонарь':'lantern','подарок':'gift','зима':'winter','лето':'summer',
-    'осень':'autumn','весна':'spring','растения':'plants','растение':'plant','бабочка':'butterfly',
-});
 let navItems = [];
 let focusBefore = null;
 let dragState = null;
@@ -306,10 +289,15 @@ function validClipartId(value) {
     return typeof value === 'string' && /^[1-9]\d{0,8}$/.test(value) ? value : '';
 }
 
-function parseOpenclipartId(value) {
-    const input = typeof value === 'string' ? value.trim() : '';
-    const match = input.match(/^https?:\/\/(?:www\.)?openclipart\.org\/(?:detail\/|image\/(?:400px|800px|2000px)\/)?([1-9]\d{0,8})(?:\/|[?#]|$)/i);
-    return match ? match[1] : '';
+function safeDecorationUrl(value) {
+    if (typeof value !== 'string' || value.length > 2048) return '';
+    try {
+        const url = new URL(value.trim());
+        if (url.protocol !== 'https:' || !url.hostname || url.username || url.password) return '';
+        // Only direct PNG file links, not pages containing images.
+        if (!/\.png$/i.test(url.pathname)) return '';
+        return url.href;
+    } catch { return ''; }
 }
 
 function decorationSource(item) {
@@ -317,26 +305,29 @@ function decorationSource(item) {
     if (asset) return asset.url;
     const id = validClipartId(item.openclipartId);
     if (id) return `https://openclipart.org/image/400px/${id}`;
-    return safeImage(item.image);
+    return safeDecorationUrl(item.url) || safeImage(item.image);
 }
 
 function decorationLabel(item) {
     const asset = GALLERY.find(x => x.id === item.assetId);
-    return asset?.label || (validClipartId(item.openclipartId) ? (plainText(item.caption || 'Картинка с Openclipart').slice(0, 90)) : 'Мой PNG');
+    if (asset) return asset.label;
+    if (validClipartId(item.openclipartId)) return plainText(item.caption || 'Картинка с Openclipart').slice(0, 90);
+    return safeDecorationUrl(item.url) ? 'PNG по ссылке' : 'Мой PNG';
 }
 
 function cleanDecorations(value) {
     if (!Array.isArray(value)) return [];
     return value.slice(0, 15).filter(item => {
         if (!item || typeof item !== 'object') return false;
-        return GALLERY.some(asset => asset.id === item.assetId) || Boolean(validClipartId(item.openclipartId)) || Boolean(safeImage(item.image));
+        return GALLERY.some(asset => asset.id === item.assetId) || Boolean(validClipartId(item.openclipartId)) || Boolean(safeDecorationUrl(item.url)) || Boolean(safeImage(item.image));
     }).map(item => {
         const assetId = GALLERY.some(asset => asset.id === item.assetId) ? item.assetId : '';
         const openclipartId = assetId ? '' : validClipartId(item.openclipartId);
-        const image = assetId || openclipartId ? '' : safeImage(item.image);
+        const url = assetId || openclipartId ? '' : safeDecorationUrl(item.url);
+        const image = assetId || openclipartId || url ? '' : safeImage(item.image);
         return {
             id: typeof item.id === 'string' && /^[\w-]{1,60}$/.test(item.id) ? item.id : `d${Math.random().toString(36).slice(2)}`,
-            assetId, openclipartId, image,
+            assetId, openclipartId, url, image,
             caption: openclipartId ? plainText(item.caption || 'Openclipart').slice(0, 90) : '',
             x: clamp(item.x, 3, 97, 50), y: clamp(item.y, 3, 97, 50),
             size: clamp(item.size, 28, 200, 88),
@@ -703,23 +694,14 @@ function renderTab() {
             html = `<h3>Значки меню</h3><p>Меняй стандартные значки выдвижного меню. Можно выбрать встроенную иконку или загрузить PNG/JPEG/WebP/GIF (до 90 КБ).</p><div id="stui-icon-rows"></div><h3>Цвет и размер</h3>${field('Цвет обычных значков', 'style.iconColor', 'color')}${field('Размер значков', 'style.iconSize', 'range', {min:14,max:34,unit:' px'})}<p class="stui-hint">В этой версии заменяются значки левого меню, а не все внутренние кнопки SillyTavern.</p>`;
             break;
         case 'decorations':
-            html = `<h3>Весь каталог Openclipart</h3>
-              <p>На сайте больше 186 тысяч рисунков. Ищи по названию и загружай по страницам — телефон не должен скачивать их все сразу.</p>
-              <div class="stui-deco-search"><input id="stui-deco-search-input" type="search" maxlength="80" placeholder="Например: цветы, snow, books"><button type="button" data-action="clipart-search">Найти</button></div>
-              <p id="stui-deco-search-status" class="stui-hint" role="status"></p>
-              <div id="stui-deco-search-results" class="stui-deco-remote-results"></div>
-              <div class="stui-deco-pager"><button type="button" data-action="clipart-prev">← Назад</button><span id="stui-deco-search-page"></span><button type="button" data-action="clipart-next">Дальше →</button></div>
-              <p class="stui-hint">Если поиск не открылся, <a href="https://openclipart.org/search/" target="_blank" rel="noopener noreferrer">открой полный каталог Openclipart</a> и скопируй ссылку на понравившийся рисунок.</p>
-              <div class="stui-deco-search"><input type="url" id="stui-deco-paste-link" placeholder="Вставь ссылку на рисунок" inputmode="url"><button type="button" data-action="clipart-add-link">Добавить</button></div>
-              <h3>Быстрый выбор — 34 рисунка</h3>
-              <div id="stui-decoration-filters" aria-label="Категории декора"></div>
-              <div id="stui-decoration-gallery"></div>
-              <p class="stui-hint">Все иллюстрации берутся с Openclipart, а не из набора эмодзи. Нужен интернет.</p>
-              <h3>Своя картинка</h3><label class="stui-upload-button stui-deco-upload">Добавить свой PNG / WebP <input type="file" id="stui-decoration-file" accept="image/png,image/webp"></label>
-              <p class="stui-hint">Поддерживается прозрачный фон, файл до 3 МБ уменьшается для настроек.</p>
+            html = `<h3>PNG по ссылке с сайта</h3>
+              <p class="stui-hint">Вставь прямую HTTPS-ссылку на файл .png с любого сайта, а не адрес страницы. Некоторые сайты запрещают показ изображений по внешней ссылке.</p>
+              <div class="stui-deco-search"><input type="url" id="stui-deco-paste-link" placeholder="https://example.com/decor.png" inputmode="url" aria-label="Прямая ссылка на PNG"><button type="button" data-action="png-add-link">Добавить</button></div>
+              <h3>PNG из галереи телефона</h3><label class="stui-upload-button stui-deco-upload">Выбрать PNG из галереи или файлов <input type="file" id="stui-decoration-file" accept=".png,image/png"></label>
+              <p class="stui-hint">Выбери изображение с прозрачным фоном до 3 МБ. Оно уменьшится для сохранения в настройках. Фон автоматически не удаляется.</p>
               <h3>Мои украшения</h3><p id="stui-decoration-count" aria-live="polite"></p>
               <div id="stui-decoration-list"></div>
-              <p class="stui-hint">Украшения поверх переписки: перемещай их пальцем после закрытия Theme Studio. Они не передаются модели.</p>`;
+              <p class="stui-hint">После закрытия Theme Studio перемещай украшения пальцем. Их размер меняется ниже. Украшения не передаются модели.</p>`;
             break;
         case 'profiles':
             html = `<h3>Мои темы</h3><p>Сохраняй оформление и быстро меняй его. Можно перенести настройки на другой телефон.</p><div class="stui-save-row"><input type="text" id="stui-profile-name" maxlength="40" placeholder="Название темы"><button type="button" data-action="save-profile">Сохранить</button></div><div id="stui-profile-list"></div><div class="stui-action-row"><button type="button" data-action="export">Экспорт JSON</button><button type="button" data-action="import">Импорт JSON</button></div><input id="stui-import-file" type="file" accept=".json,application/json" hidden>`;
@@ -770,13 +752,9 @@ function bindStudio() {
         persistAndApply();
     });
     elements.tabContent.addEventListener('keydown', event => {
-        if (event.key === 'Enter' && event.target.id === 'stui-deco-search-input') {
-            event.preventDefault();
-            searchOpenclipart(1);
-        }
         if (event.key === 'Enter' && event.target.id === 'stui-deco-paste-link') {
             event.preventDefault();
-            addOpenclipartFromLink();
+            addDecorationFromLink();
         }
     });
     elements.tabContent.addEventListener('change', event => {
@@ -791,22 +769,6 @@ function bindStudio() {
         if (input.id === 'stui-import-file') handleImport(input);
     });
     elements.tabContent.addEventListener('click', event => {
-        const onlineArt = event.target.closest('[data-add-clipart-id]');
-        if (onlineArt) {
-            const art = gallerySearchResults.find(item => item.id === onlineArt.dataset.addClipartId);
-            if (art) return addDecoration('', '', art.id, art.title);
-        }
-        const categoryButton = event.target.closest('[data-decor-filter]');
-        if (categoryButton) {
-            const category = categoryButton.dataset.decorFilter;
-            if (GALLERY_CATEGORIES.some(c => c.id === category)) {
-                selectedGalleryCategory = category;
-                renderDecorationRows();
-            }
-            return;
-        }
-        const galleryAdd = event.target.closest('[data-add-decor-asset]');
-        if (galleryAdd) return addDecoration(galleryAdd.dataset.addDecorAsset);
         const decoDel = event.target.closest('[data-remove-decoration]');
         if (decoDel) return removeDecoration(decoDel.dataset.removeDecoration);
         const iconReset = event.target.closest('[data-reset-icon]');
@@ -816,10 +778,7 @@ function bindStudio() {
         const profileDelete = event.target.closest('[data-delete-profile]');
         if (profileDelete) return deleteProfile(profileDelete.dataset.deleteProfile);
         const action = event.target.closest('[data-action]')?.dataset.action;
-        if (action === 'clipart-search') return searchOpenclipart(1);
-        if (action === 'clipart-prev') return searchOpenclipart(Math.max(1, gallerySearchPage - 1));
-        if (action === 'clipart-next') return searchOpenclipart(Math.min(gallerySearchPages, gallerySearchPage + 1));
-        if (action === 'clipart-add-link') return addOpenclipartFromLink();
+        if (action === 'png-add-link') return addDecorationFromLink();
         if (action === 'save-profile') saveProfile();
         if (action === 'export') exportSettings();
         if (action === 'import') elements.tabContent.querySelector('#stui-import-file')?.click();
@@ -899,7 +858,6 @@ function renderDecorations() {
             node.addEventListener('pointercancel', endDecorationDrag);
             elements.decorations.append(node);
         }
-        const asset = GALLERY.find(g => g.id === item.assetId);
         const source = decorationSource(item);
         const key = source;
         if (node._stuiRenderKey !== key) {
@@ -953,21 +911,22 @@ function endDecorationDrag(event) {
     persist();
 }
 
-function addDecoration(assetId = '', image = '', openclipartId = '', caption = '') {
+function addDecoration(assetId = '', image = '', openclipartId = '', caption = '', url = '') {
     if (settings.decorations.length >= 15) {
         alert('Можно добавить до 15 украшений. Сначала удали ненужные.');
         return;
     }
     const asset = GALLERY.find(g => g.id === assetId);
     const id = asset ? '' : validClipartId(openclipartId);
-    const cleanedImage = asset || id ? '' : safeImage(image);
-    if (!asset && !id && !cleanedImage) return;
+    const cleanedUrl = asset || id ? '' : safeDecorationUrl(url);
+    const cleanedImage = asset || id || cleanedUrl ? '' : safeImage(image);
+    if (!asset && !id && !cleanedUrl && !cleanedImage) return;
     const offset = settings.decorations.length % 3;
     settings.decorations.push({
         id: `d${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         assetId: asset?.id || '', openclipartId: id,
         caption: id ? plainText(caption || 'Openclipart').slice(0, 90) : '',
-        image: cleanedImage,
+        url: cleanedUrl, image: cleanedImage,
         x: 48 + offset * 5, y: 48 + offset * 5, size: 88,
     });
     persistAndApply();
@@ -979,150 +938,51 @@ function removeDecoration(id) {
     renderDecorationRows();
 }
 
-function presentClipartSearch() {
-    const pane = elements.tabContent;
-    const container = pane.querySelector('#stui-deco-search-results');
-    const input = pane.querySelector('#stui-deco-search-input');
-    const status = pane.querySelector('#stui-deco-search-status');
-    const previous = pane.querySelector('[data-action="clipart-prev"]');
-    const next = pane.querySelector('[data-action="clipart-next"]');
-    const pageText = pane.querySelector('#stui-deco-search-page');
-    if (!container || !status) return;
-    if (input && input.value !== gallerySearchQuery && document.activeElement !== input) input.value = gallerySearchQuery;
-    status.textContent = gallerySearchStatus;
-    container.replaceChildren();
-    for (const art of gallerySearchResults) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'stui-gallery-item';
-        button.dataset.addClipartId = art.id;
-        button.title = `Добавить ${art.title}`;
-        const image = document.createElement('img');
-        image.src = `https://openclipart.org/image/400px/${art.id}`;
-        image.alt = '';
-        image.loading = 'lazy';
-        const label = document.createElement('span');
-        label.textContent = art.title;
-        button.append(image, label);
-        container.append(button);
-    }
-    if (previous) previous.disabled = gallerySearchLoading || gallerySearchPage <= 1;
-    if (next) next.disabled = gallerySearchLoading || gallerySearchPage >= gallerySearchPages;
-    if (pageText) pageText.textContent = gallerySearchResults.length ? `Страница ${gallerySearchPage} из ${gallerySearchPages}` : '';
-}
-
-async function searchOpenclipart(page = 1) {
-    const input = elements.tabContent.querySelector('#stui-deco-search-input');
-    const raw = (page === 1 ? input?.value || '' : gallerySearchQuery).trim().slice(0, 80);
-    if (!raw) {
-        gallerySearchStatus = 'Введи слово для поиска. Например, «цветы» или «books».';
-        presentClipartSearch();
-        return;
-    }
-    gallerySearchAbort?.abort();
-    const controller = new AbortController();
-    gallerySearchAbort = controller;
-    gallerySearchQuery = raw;
-    gallerySearchLoading = true;
-    gallerySearchStatus = 'Загружаю рисунки с Openclipart…';
-    gallerySearchResults = [];
-    presentClipartSearch();
-    const query = raw.toLowerCase().replace(/[а-яё]+/gi, word => SEARCH_WORDS[word.toLowerCase()] || word);
-    const endpoint = new URL('https://openclipart.org/search/json/');
-    endpoint.searchParams.set('query', query);
-    endpoint.searchParams.set('amount', '24');
-    if (page > 1) endpoint.searchParams.set('page', String(page));
-    const timeout = setTimeout(() => controller.abort(), 15000);
-    try {
-        const response = await fetch(endpoint.toString(), { method: 'GET', signal: controller.signal, mode: 'cors', credentials: 'omit', referrerPolicy: 'no-referrer' });
-        if (!response.ok) throw new Error('Openclipart не ответил');
-        const data = await response.json();
-        if (data?.msg !== 'success' || !Array.isArray(data.payload)) throw new Error('Сайт не предоставил результаты');
-        const seen = new Set();
-        gallerySearchResults = data.payload.slice(0, 60).map(entry => {
-            const id = parseOpenclipartId(entry?.detail_link) || validClipartId(String(entry?.id || ''));
-            const title = plainText(entry?.title || `Openclipart № ${id}`).trim().slice(0, 90) || `Openclipart № ${id}`;
-            return { id, title };
-        }).filter(entry => {
-            if (!entry.id || seen.has(entry.id)) return false;
-            seen.add(entry.id);
-            return true;
-        }).slice(0, 24);
-        gallerySearchPage = page;
-        gallerySearchPages = clamp(data.info?.pages, 1, 10000, page);
-        if (gallerySearchPage > gallerySearchPages) gallerySearchPages = gallerySearchPage;
-        const count = clamp(data.info?.results, 0, 10000000, gallerySearchResults.length);
-        gallerySearchStatus = gallerySearchResults.length
-            ? `По запросу «${raw}»: найдено ${count} рисунков. Нажми на картинку, чтобы добавить.`
-            : `По запросу «${raw}» ничего не найдено. Попробуй английское название.`;
-    } catch (error) {
-        if (gallerySearchAbort !== controller) return;
-        gallerySearchStatus = 'Автоматический поиск сейчас недоступен: сайт может ограничивать внешние запросы. Можно открыть весь каталог на сайте и добавить любой рисунок по ссылке ниже.';
-        gallerySearchPage = 1;
-        gallerySearchPages = 1;
-    } finally {
-        clearTimeout(timeout);
-        if (gallerySearchAbort === controller) {
-            gallerySearchAbort = null;
-            gallerySearchLoading = false;
-            presentClipartSearch();
-        }
-    }
-}
-
-function addOpenclipartFromLink() {
+async function addDecorationFromLink() {
     const input = elements.tabContent.querySelector('#stui-deco-paste-link');
-    const id = parseOpenclipartId(input?.value);
-    if (!id) {
-        alert('Вставь ссылку именно на рисунок с openclipart.org, например https://openclipart.org/detail/296597/stack-of-books');
+    const url = safeDecorationUrl(input?.value);
+    if (!url) {
+        alert('Нужна прямая HTTPS-ссылка на PNG-файл (заканчивается на .png), а не адрес страницы сайта. Можно сохранить PNG на телефон и добавить через галерею.');
         return;
     }
-    addDecoration('', '', id, `Openclipart № ${id}`);
-    if (input) input.value = '';
+    if (settings.decorations.length >= 15) {
+        alert('Можно добавить до 15 украшений. Сначала удали ненужные.');
+        return;
+    }
+    const button = elements.tabContent.querySelector('[data-action="png-add-link"]');
+    if (button?.disabled) return;
+    if (button) { button.disabled = true; button.textContent = 'Проверяю…'; }
+    try {
+        await new Promise((resolve, reject) => {
+            const preview = new Image();
+            const timer = setTimeout(() => {
+                preview.onload = preview.onerror = null;
+                reject(new Error('Сайт слишком долго не отвечает'));
+            }, 12000);
+            preview.onload = () => { clearTimeout(timer); resolve(); };
+            preview.onerror = () => { clearTimeout(timer); reject(new Error('Сайт не разрешил загрузку изображения')); };
+            preview.src = url;
+        });
+        addDecoration('', '', '', '', url);
+        if (input) input.value = '';
+    } catch (error) {
+        alert(`Не удалось загрузить PNG по ссылке: ${error.message}. Сохрани картинку на телефон и добавь её из галереи.`);
+    } finally {
+        if (button?.isConnected) { button.disabled = false; button.textContent = 'Добавить'; }
+    }
 }
 
 function renderDecorationRows() {
-    const filters = elements.tabContent.querySelector('#stui-decoration-filters');
-    const gallery = elements.tabContent.querySelector('#stui-decoration-gallery');
     const list = elements.tabContent.querySelector('#stui-decoration-list');
     const counter = elements.tabContent.querySelector('#stui-decoration-count');
-    if (!filters || !gallery || !list) return;
-    filters.replaceChildren();
-    gallery.replaceChildren();
+    if (!list) return;
     list.replaceChildren();
     if (counter) counter.textContent = `Добавлено: ${settings.decorations.length} из 15`;
-    for (const category of GALLERY_CATEGORIES) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.textContent = category.label;
-        button.dataset.decorFilter = category.id;
-        button.className = 'stui-deco-filter';
-        button.classList.toggle('stui-selected', selectedGalleryCategory === category.id);
-        button.setAttribute('aria-pressed', String(selectedGalleryCategory === category.id));
-        filters.append(button);
-    }
-    for (const asset of GALLERY) {
-        if (selectedGalleryCategory !== 'all' && asset.category !== selectedGalleryCategory) continue;
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'stui-gallery-item';
-        button.dataset.addDecorAsset = asset.id;
-        button.title = `Добавить: ${asset.label}`;
-        const image = document.createElement('img');
-        image.src = asset.url;
-        image.alt = '';
-        image.loading = 'lazy';
-        const name = document.createElement('span');
-        name.textContent = asset.label;
-        button.append(image, name);
-        gallery.append(button);
-    }
     for (const item of settings.decorations) {
         const row = document.createElement('div');
         row.className = 'stui-deco-row';
         const description = document.createElement('div');
         description.className = 'stui-deco-row-info';
-        const asset = GALLERY.find(g => g.id === item.assetId);
         const source = decorationSource(item);
         const preview = document.createElement('img');
         preview.src = source;
@@ -1157,14 +1017,13 @@ function renderDecorationRows() {
         row.append(description, controls);
         list.append(row);
     }
-    presentClipartSearch();
 }
 async function handleDecorationFile(input) {
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
-    if (!['image/png', 'image/webp'].includes(file.type) || file.size > 3000000) {
-        alert('Выбери PNG или WebP не больше 3 МБ. Лучше всего подойдёт изображение с прозрачным фоном.');
+    if ((file.type && file.type !== 'image/png') || !/\.png$/i.test(file.name) || file.size > 3000000) {
+        alert('Выбери PNG не больше 3 МБ. Лучше всего подойдёт изображение с прозрачным фоном.');
         return;
     }
     const url = URL.createObjectURL(file);
