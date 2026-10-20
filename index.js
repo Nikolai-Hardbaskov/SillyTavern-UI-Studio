@@ -5,25 +5,210 @@ const ICONS = ['fa-sliders', 'fa-plug', 'fa-font', 'fa-book-atlas', 'fa-user-gea
 const GALLERY = [
     {
         "id": "books",
+        "category": "cozy",
         "label": "Стопка книг",
         "url": "https://openclipart.org/image/400px/296597"
     },
     {
+        "id": "open-book",
+        "category": "cozy",
+        "label": "Старинная книга",
+        "url": "https://openclipart.org/image/400px/171937"
+    },
+    {
+        "id": "teacup",
+        "category": "cozy",
+        "label": "Чайная чашка",
+        "url": "https://openclipart.org/image/400px/288224"
+    },
+    {
+        "id": "coffee",
+        "category": "cozy",
+        "label": "Чашка кофе",
+        "url": "https://openclipart.org/image/400px/285384"
+    },
+    {
+        "id": "teapot",
+        "category": "cozy",
+        "label": "Чайник",
+        "url": "https://openclipart.org/image/400px/318263"
+    },
+    {
+        "id": "lantern",
+        "category": "cozy",
+        "label": "Фонарь",
+        "url": "https://openclipart.org/image/400px/274914"
+    },
+    {
+        "id": "gift",
+        "category": "cozy",
+        "label": "Подарок",
+        "url": "https://openclipart.org/image/400px/174410"
+    },
+    {
         "id": "flowers",
+        "category": "flowers",
         "label": "Цветы",
         "url": "https://openclipart.org/image/400px/353628"
     },
     {
+        "id": "rose",
+        "category": "flowers",
+        "label": "Роза",
+        "url": "https://openclipart.org/image/400px/177016"
+    },
+    {
+        "id": "tulip",
+        "category": "flowers",
+        "label": "Тюльпан",
+        "url": "https://openclipart.org/image/400px/221396"
+    },
+    {
+        "id": "sunflower",
+        "category": "flowers",
+        "label": "Подсолнух",
+        "url": "https://openclipart.org/image/400px/57145"
+    },
+    {
+        "id": "flowerpot",
+        "category": "flowers",
+        "label": "Цветы в горшке",
+        "url": "https://openclipart.org/image/400px/333123"
+    },
+    {
+        "id": "bouquet",
+        "category": "flowers",
+        "label": "Букет",
+        "url": "https://openclipart.org/image/400px/291439"
+    },
+    {
+        "id": "pinkrose",
+        "category": "flowers",
+        "label": "Розовая роза",
+        "url": "https://openclipart.org/image/400px/254960"
+    },
+    {
+        "id": "fern",
+        "category": "nature",
+        "label": "Папоротник",
+        "url": "https://openclipart.org/image/400px/249259"
+    },
+    {
+        "id": "mushroom",
+        "category": "nature",
+        "label": "Гриб",
+        "url": "https://openclipart.org/image/400px/250393"
+    },
+    {
+        "id": "leaf",
+        "category": "nature",
+        "label": "Кленовый лист",
+        "url": "https://openclipart.org/image/400px/77431"
+    },
+    {
+        "id": "pinecone",
+        "category": "nature",
+        "label": "Шишка",
+        "url": "https://openclipart.org/image/400px/322639"
+    },
+    {
+        "id": "acorn",
+        "category": "nature",
+        "label": "Жёлудь",
+        "url": "https://openclipart.org/image/400px/300891"
+    },
+    {
+        "id": "pine-branch",
+        "category": "nature",
+        "label": "Хвойная ветка",
+        "url": "https://openclipart.org/image/400px/266238"
+    },
+    {
+        "id": "leaves",
+        "category": "nature",
+        "label": "Осенние листья",
+        "url": "https://openclipart.org/image/400px/286998"
+    },
+    {
         "id": "snow",
+        "category": "winter",
         "label": "Снежинка",
         "url": "https://openclipart.org/image/400px/206250"
     },
     {
+        "id": "snowflakes",
+        "category": "winter",
+        "label": "Россыпь снежинок",
+        "url": "https://openclipart.org/image/400px/350299"
+    },
+    {
+        "id": "snowman",
+        "category": "winter",
+        "label": "Снеговик",
+        "url": "https://openclipart.org/image/400px/310692"
+    },
+    {
+        "id": "pine-tree",
+        "category": "winter",
+        "label": "Ель в снегу",
+        "url": "https://openclipart.org/image/400px/227269"
+    },
+    {
+        "id": "xmas-tree",
+        "category": "winter",
+        "label": "Нарядная ёлка",
+        "url": "https://openclipart.org/image/400px/100885"
+    },
+    {
+        "id": "candle",
+        "category": "winter",
+        "label": "Свеча",
+        "url": "https://openclipart.org/image/400px/350703"
+    },
+    {
         "id": "telephone",
+        "category": "vintage",
         "label": "Ретро-телефон",
         "url": "https://openclipart.org/image/400px/201543"
+    },
+    {
+        "id": "camera",
+        "category": "vintage",
+        "label": "Старая камера",
+        "url": "https://openclipart.org/image/400px/189528"
+    },
+    {
+        "id": "key",
+        "category": "vintage",
+        "label": "Старинный ключ",
+        "url": "https://openclipart.org/image/400px/9277"
+    },
+    {
+        "id": "quill",
+        "category": "vintage",
+        "label": "Перо для письма",
+        "url": "https://openclipart.org/image/400px/310379"
+    },
+    {
+        "id": "watch",
+        "category": "vintage",
+        "label": "Карманные часы",
+        "url": "https://openclipart.org/image/400px/307602"
+    },
+    {
+        "id": "letter",
+        "category": "vintage",
+        "label": "Письмо в конверте",
+        "url": "https://openclipart.org/image/400px/350911"
+    },
+    {
+        "id": "clock",
+        "category": "vintage",
+        "label": "Напольные часы",
+        "url": "https://openclipart.org/image/400px/261134"
     }
 ];
+const GALLERY_CATEGORIES = [{"id":"all","label":"Все"},{"id":"cozy","label":"Уют"},{"id":"flowers","label":"Цветы"},{"id":"nature","label":"Природа"},{"id":"winter","label":"Зима"},{"id":"vintage","label":"Винтаж"}];
 const FONTS = ['inherit', 'system-ui', 'Arial', 'Georgia', 'Verdana', 'Trebuchet MS', 'Times New Roman', 'Courier New', 'Tahoma', 'serif', 'sans-serif', 'monospace'];
 const NAV_META = {
     'ai-config-button': ['Chat Completion Presets', 'fa-sliders'],
@@ -69,6 +254,7 @@ let holder;
 let observer;
 let started = false;
 let chosenTab = 'text';
+let selectedGalleryCategory = 'all';
 let navItems = [];
 let focusBefore = null;
 let dragState = null;
@@ -103,20 +289,20 @@ function cleanIcons(value) {
 }
 function cleanDecorations(value) {
     if (!Array.isArray(value)) return [];
-    const allowed = ['✦', '☾', '♡', '❀', '✧', '🦋', '🌙', '✨'];
+    // Pre-v0.2.4 emoji and symbol decorations are intentionally removed.
+    // Keep only transparent art selected from the allowlisted gallery, or local pictures.
     return value.slice(0, 15).filter(item => {
         if (!item || typeof item !== 'object') return false;
-        return allowed.includes(item.symbol) || GALLERY.some(asset => asset.id === item.assetId) || Boolean(safeImage(item.image));
+        return GALLERY.some(asset => asset.id === item.assetId) || Boolean(safeImage(item.image));
     }).map(item => {
         const assetId = GALLERY.some(asset => asset.id === item.assetId) ? item.assetId : '';
         const image = assetId ? '' : safeImage(item.image);
-        const symbol = !assetId && !image && allowed.includes(item.symbol) ? item.symbol : '';
         return {
             id: typeof item.id === 'string' && /^[\w-]{1,60}$/.test(item.id) ? item.id : `d${Math.random().toString(36).slice(2)}`,
-            symbol, assetId, image,
+            assetId, image,
             x: clamp(item.x, 3, 97, 50),
             y: clamp(item.y, 3, 97, 50),
-            size: clamp(item.size, 28, 200, (assetId || image) ? 88 : 46),
+            size: clamp(item.size, 28, 200, 88),
         };
     });
 }
@@ -478,16 +664,19 @@ function renderTab() {
             html = `<h3>Значки меню</h3><p>Меняй стандартные значки выдвижного меню. Можно выбрать встроенную иконку или загрузить PNG/JPEG/WebP/GIF (до 90 КБ).</p><div id="stui-icon-rows"></div><h3>Цвет и размер</h3>${field('Цвет обычных значков', 'style.iconColor', 'color')}${field('Размер значков', 'style.iconSize', 'range', {min:14,max:34,unit:' px'})}<p class="stui-hint">В этой версии заменяются значки левого меню, а не все внутренние кнопки SillyTavern.</p>`;
             break;
         case 'decorations':
-            html = `<h3>Декор для чата</h3><p>Нажми на картинку → закрой Theme Studio → украшение появится в центре экрана. Перетащи его пальцем куда захочешь.</p>
-              <h3>Галерея прозрачных рисунков</h3><div id="stui-decoration-gallery"></div>
-              <p class="stui-hint">Рисунки Openclipart (CC0). Для галереи нужен интернет; это настоящие иллюстрации предметов, не PNG-эмодзи.</p>
+            html = `<h3>Декор для чата</h3><p>Выбирай картинки без фона из галереи или загружай свои. Нажми на рисунок, закрой Theme Studio и перетащи его по чату пальцем.</p>
+              <h3>Галерея иллюстраций — 34 рисунка</h3>
+              <div id="stui-decoration-filters" aria-label="Категории декора"></div>
+              <div id="stui-decoration-gallery"></div>
+              <p class="stui-hint">Иллюстрации Openclipart (CC0) загружаются по интернету. Это не PNG-эмодзи.</p>
               <h3>Своё изображение</h3><label class="stui-upload-button stui-deco-upload">Добавить свой PNG / WebP <input type="file" id="stui-decoration-file" accept="image/png,image/webp"></label>
-              <p class="stui-hint">Файл до 3 МБ автоматически уменьшается для сохранения в настройках. Прозрачность сохраняется.</p>
-              <h3>Символы (необязательно)</h3><div id="stui-decoration-palette"></div>
-              <h3>Мои украшения</h3><p id="stui-decoration-count" aria-live="polite"></p><div id="stui-decoration-list"></div>
-              <p class="stui-hint">Декор виден только на твоём экране и не передаётся модели. Для удаления используй кнопку в списке.</p>`;
+              <p class="stui-hint">Файл до 3 МБ автоматически уменьшается для настроек. Прозрачный фон сохраняется.</p>
+              <h3>Мои украшения</h3><p id="stui-decoration-count" aria-live="polite"></p>
+              <div id="stui-decoration-list"></div>
+              <p class="stui-hint">Украшения располагаются поверх переписки, но не внутри сообщений и не передаются модели. Размер можно менять в списке.</p>`;
             break;
-        case 'profiles':
+        
+case 'profiles':
             html = `<h3>Мои темы</h3><p>Сохраняй оформление и быстро меняй его. Можно перенести настройки на другой телефон.</p><div class="stui-save-row"><input type="text" id="stui-profile-name" maxlength="40" placeholder="Название темы"><button type="button" data-action="save-profile">Сохранить</button></div><div id="stui-profile-list"></div><div class="stui-action-row"><button type="button" data-action="export">Экспорт JSON</button><button type="button" data-action="import">Импорт JSON</button></div><input id="stui-import-file" type="file" accept=".json,application/json" hidden>`;
             break;
         case 'general':
@@ -547,10 +736,17 @@ function bindStudio() {
         if (input.id === 'stui-import-file') handleImport(input);
     });
     elements.tabContent.addEventListener('click', event => {
+        const categoryButton = event.target.closest('[data-decor-filter]');
+        if (categoryButton) {
+            const category = categoryButton.dataset.decorFilter;
+            if (GALLERY_CATEGORIES.some(c => c.id === category)) {
+                selectedGalleryCategory = category;
+                renderDecorationRows();
+            }
+            return;
+        }
         const galleryAdd = event.target.closest('[data-add-decor-asset]');
-        if (galleryAdd) return addDecoration('', galleryAdd.dataset.addDecorAsset);
-        const decoAdd = event.target.closest('[data-add-decoration]');
-        if (decoAdd) return addDecoration(decoAdd.dataset.addDecoration);
+        if (galleryAdd) return addDecoration(galleryAdd.dataset.addDecorAsset);
         const decoDel = event.target.closest('[data-remove-decoration]');
         if (decoDel) return removeDecoration(decoDel.dataset.removeDecoration);
         const iconReset = event.target.closest('[data-reset-icon]');
@@ -641,7 +837,7 @@ function renderDecorations() {
         }
         const asset = GALLERY.find(g => g.id === item.assetId);
         const source = asset?.url || item.image;
-        const key = source || item.symbol;
+        const key = source;
         if (node._stuiRenderKey !== key) {
             if (source) {
                 const image = document.createElement('img');
@@ -650,13 +846,11 @@ function renderDecorations() {
                 image.draggable = false;
                 image.decoding = 'async';
                 node.replaceChildren(image);
-            } else {
-                node.textContent = item.symbol;
             }
             node._stuiRenderKey = key;
         }
-        node.setAttribute('aria-label', `Украшение ${asset?.label || (item.image ? 'Мой PNG' : item.symbol)}, перетащить`);
-        node.classList.toggle('stui-decoration-image', Boolean(source));
+        node.setAttribute('aria-label', `Украшение ${asset?.label || 'Мой PNG'}, перетащить`);
+        node.classList.add('stui-decoration-image');
         node.style.left = `${item.x}%`;
         node.style.top = `${item.y}%`;
         node.style.width = `${item.size}px`;
@@ -695,27 +889,24 @@ function endDecorationDrag(event) {
     persist();
 }
 
-function addDecoration(symbol = '', assetId = '', image = '') {
+function addDecoration(assetId = '', image = '') {
     if (settings.decorations.length >= 15) {
         alert('Можно добавить до 15 украшений. Сначала удали ненужные.');
         return;
     }
     const asset = GALLERY.find(g => g.id === assetId);
     const cleanedImage = asset ? '' : safeImage(image);
-    if (!asset && !cleanedImage && !['✦', '☾', '♡', '❀', '✧', '🦋', '🌙', '✨'].includes(symbol)) return;
-    const size = asset || cleanedImage ? 88 : 46;
+    if (!asset && !cleanedImage) return;
     const offset = settings.decorations.length % 3;
     settings.decorations.push({
         id: `d${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        symbol: asset || cleanedImage ? '' : symbol,
         assetId: asset?.id || '',
         image: cleanedImage,
-        x: 48 + offset * 5, y: 48 + offset * 5, size,
+        x: 48 + offset * 5, y: 48 + offset * 5, size: 88,
     });
     persistAndApply();
     renderDecorationRows();
 }
-
 function removeDecoration(id) {
     settings.decorations = settings.decorations.filter(item => item.id !== id);
     persistAndApply();
@@ -723,16 +914,27 @@ function removeDecoration(id) {
 }
 
 function renderDecorationRows() {
-    const palette = elements.tabContent.querySelector('#stui-decoration-palette');
+    const filters = elements.tabContent.querySelector('#stui-decoration-filters');
     const gallery = elements.tabContent.querySelector('#stui-decoration-gallery');
     const list = elements.tabContent.querySelector('#stui-decoration-list');
     const counter = elements.tabContent.querySelector('#stui-decoration-count');
-    if (!palette || !gallery || !list) return;
-    palette.replaceChildren();
+    if (!filters || !gallery || !list) return;
+    filters.replaceChildren();
     gallery.replaceChildren();
     list.replaceChildren();
     if (counter) counter.textContent = `Добавлено: ${settings.decorations.length} из 15`;
+    for (const category of GALLERY_CATEGORIES) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = category.label;
+        button.dataset.decorFilter = category.id;
+        button.className = 'stui-deco-filter';
+        button.classList.toggle('stui-selected', selectedGalleryCategory === category.id);
+        button.setAttribute('aria-pressed', String(selectedGalleryCategory === category.id));
+        filters.append(button);
+    }
     for (const asset of GALLERY) {
+        if (selectedGalleryCategory !== 'all' && asset.category !== selectedGalleryCategory) continue;
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'stui-gallery-item';
@@ -747,14 +949,6 @@ function renderDecorationRows() {
         button.append(image, name);
         gallery.append(button);
     }
-    for (const symbol of ['✦', '☾', '♡', '❀', '✧', '🦋', '🌙', '✨']) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.textContent = symbol;
-        button.dataset.addDecoration = symbol;
-        button.title = 'Добавить символ';
-        palette.append(button);
-    }
     for (const item of settings.decorations) {
         const row = document.createElement('div');
         row.className = 'stui-deco-row';
@@ -762,20 +956,13 @@ function renderDecorationRows() {
         description.className = 'stui-deco-row-info';
         const asset = GALLERY.find(g => g.id === item.assetId);
         const source = asset?.url || item.image;
-        if (source) {
-            const preview = document.createElement('img');
-            preview.src = source;
-            preview.alt = '';
-            preview.loading = 'lazy';
-            description.append(preview);
-        } else {
-            const preview = document.createElement('span');
-            preview.className = 'stui-deco-symbol';
-            preview.textContent = item.symbol;
-            description.append(preview);
-        }
+        const preview = document.createElement('img');
+        preview.src = source;
+        preview.alt = '';
+        preview.loading = 'lazy';
+        description.append(preview);
         const title = document.createElement('span');
-        title.textContent = `${asset?.label || (item.image ? 'Мой PNG' : 'Символ')} · ${Math.round(item.x)}%, ${Math.round(item.y)}%`;
+        title.textContent = `${asset?.label || 'Мой PNG'} · ${Math.round(item.x)}%, ${Math.round(item.y)}%`;
         description.append(title);
         const controls = document.createElement('div');
         controls.className = 'stui-deco-row-controls';
@@ -803,7 +990,6 @@ function renderDecorationRows() {
         list.append(row);
     }
 }
-
 async function handleDecorationFile(input) {
     const file = input.files?.[0];
     input.value = '';
@@ -837,7 +1023,7 @@ async function handleDecorationFile(input) {
         if (!safeImage(data)) throw new Error('PNG слишком сложный для хранения в настройках. Попробуй уменьшить размер');
         const used = settings.decorations.reduce((sum, item) => sum + (item.image?.length || 0), 0);
         if (used + data.length > 400000) throw new Error('В настройках уже много картинок. Удали часть своих PNG перед добавлением');
-        addDecoration('', '', data);
+        addDecoration('', data);
     } catch (error) {
         alert(`Не получилось добавить PNG: ${error.message}`);
     } finally {
