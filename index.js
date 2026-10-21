@@ -236,14 +236,46 @@ const AVATAR_RADII = {
 const FONT_SERIF = new Set(['serif','Georgia','Times New Roman','Noto Serif','PT Serif','Lora','Playfair Display','Merriweather','IBM Plex Serif','Alegreya','Alice','Cormorant Garamond','Tenor Sans']);
 const FONT_SCRIPT = new Set(['Caveat','Lobster','Pacifico','Bad Script','Marck Script']);
 const loadedFonts = new Set();
+const MAX_LOCAL_FONT_BYTES = 620000, MAX_LOCAL_FONTS_DATA = 1950000;
+let faceSignature = '';
+function cleanLocalFonts(value) {
+  if (!Array.isArray(value)) return [];
+  let used=0;
+  const result=[], seen=new Set();
+  for (const font of value.slice(0,3)) {
+    if (!font || !/^stui-local-[a-z0-9-]{4,40}$/.test(font.id||'') ||
+      !['ttf','otf','woff','woff2'].includes(font.format) || seen.has(font.id)) continue;
+    const kind={ttf:'truetype',otf:'opentype',woff:'woff',woff2:'woff2'}[font.format];
+    if (typeof font.data!=='string' || font.data.length>850000 ||
+      !new RegExp('^data:font/'+kind+';base64,[A-Za-z0-9+/=]+$').test(font.data)) continue;
+    if (used+font.data.length>MAX_LOCAL_FONTS_DATA) continue;
+    used+=font.data.length; seen.add(font.id);
+    result.push({id:font.id,name:plainText(font.name).slice(0,60),format:font.format,data:font.data});
+  }
+  return result;
+}
+function syncLocalFonts() {
+  if (!settings || typeof document==='undefined') return;
+  const signature=(settings.fonts||[]).map(f=>f.id+':'+f.data.length).join('|');
+  if (signature===faceSignature) return;
+  let node=document.getElementById('stui-local-font-faces');
+  if (!node) { node=document.createElement('style');node.id='stui-local-font-faces';document.head.append(node); }
+  const formats={ttf:'truetype',otf:'opentype',woff:'woff',woff2:'woff2'};
+  node.textContent=(settings.fonts||[]).map(f=>
+    '@font-face{font-family:"'+f.id+'";src:url("'+f.data+'") format("'+formats[f.format]+'");font-display:swap;}').join('\n');
+  faceSignature=signature;
+}
+
 function fontStack(name) {
  if (name === 'inherit') return 'inherit';
+ if (settings?.fonts?.some(f=>f.id===name)) return '"'+name+'", sans-serif';
  if (!FONTS.includes(name)) return 'inherit';
  if (['system-ui','serif','sans-serif','monospace'].includes(name)) return name;
  const fallback = FONT_SCRIPT.has(name) ? 'cursive' : FONT_SERIF.has(name) ? 'serif' : 'sans-serif';
  return `"${name}", ${fallback}`;
 }
 function ensureFontLoaded(name) {
+ syncLocalFonts();
  if (!GOOGLE_FONTS.includes(name) || loadedFonts.has(name)) return;
  loadedFonts.add(name);
  const link = document.createElement('link');
@@ -292,6 +324,7 @@ const DEFAULTS = {
     },
     icons: {},
     decorations: [],
+    fonts: [],
     profiles: {},
 };
 const TABS = [
@@ -405,9 +438,10 @@ function normalize(raw, includeProfiles = true) {
         ['triggerOpacity', 0.3, 1], ['fadeOpacity', 0.2, 0.9], ['fadeDelay', 2, 15],
     ]) data.navigation[k] = clamp(n[k], min, max, data.navigation[k]);
     data.navigation.autoFade = n.autoFade !== false;
-    const s = raw.style || {};
-    const d = data.style;
-    for (const k of ['modelFont', 'userFont']) if (FONTS.includes(s[k])) d[k] = s[k];
+    data.fonts=cleanLocalFonts(raw.fonts);
+    const s=raw.style||{};
+    const d=data.style;
+    for (const k of ['modelFont','userFont']) if (FONTS.includes(s[k]) || data.fonts.some(f=>f.id===s[k])) d[k]=s[k];
     for (const k of ['modelColor', 'userColor', 'cardBorderColor', 'cardColor', 'avatarBorderColor', 'chatColor', 'iconColor', 'cardShadowColor', 'cardGradientColor']) d[k] = safeColor(s[k], d[k]);
     for (const [k, min, max] of [
         ['modelSize', 12, 40], ['userSize', 12, 40], ['lineHeight', 1.1, 2.5],
@@ -437,7 +471,7 @@ function normalize(raw, includeProfiles = true) {
     if (includeProfiles && raw.profiles && typeof raw.profiles === 'object' && !Array.isArray(raw.profiles)) {
         for (const [name, profile] of Object.entries(raw.profiles).slice(0, 15)) {
             if (name.length <= 40 && !DANGEROUS_KEYS.has(name) && profile && typeof profile === 'object') {
-                const clean = normalize(profile, false);
+                const clean = normalize({...profile, fonts:data.fonts}, false);
                 data.profiles[name] = { style: clean.style, icons: clean.icons, decorations: clean.decorations };
             }
         }
@@ -477,6 +511,7 @@ function saveStudioChanges() {
 function discardStudioChanges() {
     if (!studioBaseline) return;
     settings = studioBaseline;
+    syncLocalFonts();
     studioBaseline = null;
     studioDirty = false;
     updateDraftStatus();
@@ -860,7 +895,10 @@ function renderTab() {
     // Keep the sample visible above the scroll area while editing text, cards, avatars, and presets.
     // Its CSS variables are overridden on the sample only until the user saves.
     if (elements.preview) elements.preview.hidden = !['text', 'messages', 'avatars', 'profiles'].includes(chosenTab);
-    const fontOptions = FONTS.map(name => [name, name === 'inherit' ? 'Как в SillyTavern' : name]);
+    const fontOptions = [
+      ...FONTS.map(name=>[name,name==='inherit'?'Как в SillyTavern':name]),
+      ...settings.fonts.map(f=>[f.id,f.name+' (мой · офлайн)'])
+    ];
     let html = '';
     switch (chosenTab) {
         case 'text':
@@ -882,7 +920,12 @@ function renderTab() {
               ${field('Мой цвет текста','style.userColor','color')}
               <h3>Общее</h3>
               ${field('Межстрочный интервал','style.lineHeight','range',{min:1.1,max:2.5,step:.05})}
-              <p class="stui-hint">Дополнительные шрифты загружаются при выборе через Google Fonts. Без интернета используется запасной шрифт.</p>`;
+              <p class="stui-hint">Онлайн-шрифты требуют интернета. Для работы без сети добавь свой файл шрифта из телефона.</p>
+              <h3>Мои шрифты · офлайн</h3>
+              <p>Файлы TTF, OTF, WOFF, WOFF2; до трёх шрифтов по 620 КБ. После сохранения они работают без интернета на этом устройстве.</p>
+              <label class="stui-upload-button stui-deco-upload">Добавить шрифт
+                <input type="file" id="stui-font-file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2">
+              </label><div id="stui-font-list"></div>`;
             break;
         case 'messages':
             html = `<h3>Карточки сообщений</h3>
@@ -950,6 +993,7 @@ function renderTab() {
     if (chosenTab === 'icons') renderIconRows();
     if (chosenTab === 'decorations') renderDecorationRows();
     if (chosenTab === 'profiles') renderProfileRows();
+    if (chosenTab === 'text') renderFontRows();
 }
 function bindStudio() {
     elements.tabs.addEventListener('click', event => {
@@ -1008,9 +1052,12 @@ function bindStudio() {
         }
         if (input.matches('[data-icon-file]')) handleIconFile(input);
         if (input.id === 'stui-decoration-file') handleDecorationFile(input);
+        if (input.id === 'stui-font-file') handleLocalFont(input);
         if (input.id === 'stui-import-file') handleImport(input);
     });
     elements.tabContent.addEventListener('click', event => {
+        const fontRemove=event.target.closest('[data-remove-font]');
+        if (fontRemove) return removeLocalFont(fontRemove.dataset.removeFont);
         const decoDel = event.target.closest('[data-remove-decoration]');
         if (decoDel) return removeDecoration(decoDel.dataset.removeDecoration);
         const iconReset = event.target.closest('[data-reset-icon]');
@@ -1029,6 +1076,48 @@ function bindStudio() {
     });
 }
 
+function renderFontRows() {
+  const list=elements.tabContent.querySelector('#stui-font-list');
+  if(!list) return;
+  list.replaceChildren();
+  for(const font of settings.fonts) {
+    const row=document.createElement('div'), label=document.createElement('span'),
+      button=document.createElement('button');
+    row.className='stui-list-row';label.textContent=font.name;
+    button.type='button';button.textContent='Удалить';button.dataset.removeFont=font.id;
+    row.append(label,button);list.append(row);
+  }
+}
+function removeLocalFont(id) {
+  settings.fonts=settings.fonts.filter(f=>f.id!==id);
+  for(const key of ['modelFont','userFont']) if(settings.style[key]===id)settings.style[key]='inherit';
+  stageSettings();renderTab();
+}
+async function handleLocalFont(input) {
+  const session=studioSession,file=input.files?.[0];input.value='';
+  if(!file)return;
+  const format=file.name.split('.').pop().toLowerCase();
+  if(!['ttf','otf','woff','woff2'].includes(format) || file.size>MAX_LOCAL_FONT_BYTES) {
+    alert('Нужен файл TTF/OTF/WOFF/WOFF2 не более 620 КБ.');return;
+  }
+  if(settings.fonts.length>=3) {alert('Можно загрузить до трёх шрифтов.');return;}
+  try{
+    const raw=await new Promise((res,rej)=>{
+      const reader=new FileReader();reader.onload=()=>res(String(reader.result));
+      reader.onerror=()=>rej(reader.error);reader.readAsDataURL(file);
+    });
+    if(!studioBaseline || session!==studioSession)return;
+    const b64=raw.split(';base64,')[1];
+    if(!b64 || !/^[A-Za-z0-9+/=]+$/.test(b64))throw Error('Неверный файл');
+    const kind={ttf:'truetype',otf:'opentype',woff:'woff',woff2:'woff2'}[format];
+    const data='data:font/'+kind+';base64,'+b64;
+    if(data.length+settings.fonts.reduce((a,f)=>a+f.data.length,0)>MAX_LOCAL_FONTS_DATA)
+      throw Error('Недостаточно места для хранения шрифта');
+    const id='stui-local-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
+    settings.fonts.push({id,name:plainText(file.name).slice(0,60),format,data});
+    stageSettings();renderTab();
+  }catch(err){alert('Ошибка загрузки шрифта: '+err.message);}
+}
 function renderIconRows() {
     const list = elements.tabContent.querySelector('#stui-icon-rows');
     if (!list) return;
@@ -1321,7 +1410,7 @@ function saveProfile() {
 function loadProfile(name) {
     const profile = settings.profiles[name];
     if (!profile) return;
-    const clean = normalize(profile, false);
+    const clean = normalize({...profile, fonts:settings.fonts}, false);
     settings.style = clean.style; settings.icons = clean.icons; settings.decorations = clean.decorations;
     stageSettings(); renderTab();
 }
@@ -1366,7 +1455,7 @@ function resetStyle() {
     if (!confirm('Сбросить оформление, иконки и декор? Сохранённые темы останутся.')) return;
     const keepProfiles = settings.profiles;
     const keepNavigation = settings.navigation;
-    settings = normalize({ profiles: keepProfiles, navigation: keepNavigation });
+    settings = normalize({ profiles: keepProfiles, navigation: keepNavigation, fonts:settings.fonts });
     stageSettings(); renderTab();
 }
 function dispose() {
@@ -1376,6 +1465,7 @@ function dispose() {
     clearTimeout(fadeTimer);
     fadeTimer = null;
     observer?.disconnect();
+    document.getElementById('stui-local-font-faces')?.remove();faceSignature='';
     document.removeEventListener('keydown', onKeyDown);
     for (const item of ['trigger','scrim','menu','studio','decorations']) elements[item]?.remove();
     document.body.classList.remove('stui-active', 'stui-hide-top', 'stui-overlay-open', 'stui-trigger-faded');
