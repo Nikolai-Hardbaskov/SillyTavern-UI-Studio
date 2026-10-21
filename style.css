@@ -365,6 +365,7 @@ body.stui-active .stui-field input[type="color"] {
     border-radius: 9px;
     background: var(--stui-surface);
 }
+body.stui-active .stui-field input[type="text"],
 body.stui-active .stui-field select,
 body.stui-active .stui-save-row input,
 body.stui-active .stui-icon-row select {
@@ -379,6 +380,9 @@ body.stui-active .stui-icon-row select {
     color: #f7f2fa;
     font: inherit;
 }
+/* 16px avoids unexpected Safari zoom when editing a font family on iPhone. */
+body.stui-active .stui-field input[type="text"] { font-size: 16px; }
+body.stui-active .stui-field input[type="text"]::placeholder { color: #b7aebf; }
 body.stui-active .stui-field input[type="checkbox"] { width: 21px; height: 21px; accent-color: #c8a5f2; }
 body.stui-active .stui-range { display: flex; align-items: center; gap: 12px; }
 body.stui-active .stui-range input { flex: 1 1 auto; min-width: 0; accent-color: #d4b2fa; }

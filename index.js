@@ -266,6 +266,12 @@ function syncLocalFonts() {
   faceSignature=signature;
 }
 
+function sanitizeFontFamily(value) {
+ if(typeof value!=='string')return '';
+ const name=value.trim().slice(0,160);
+ return /^[\p{L}\p{N}\s_,.'"\-]+$/u.test(name)?name:'';
+}
+function chosenFontFamily(custom,preset){return sanitizeFontFamily(custom)||fontStack(preset);}
 function fontStack(name) {
  if (name === 'inherit') return 'inherit';
  if (settings?.fonts?.some(f=>f.id===name)) return '"'+name+'", sans-serif';
@@ -304,7 +310,7 @@ const DEFAULTS = {
         autoFade: true, fadeOpacity: 0.48, fadeDelay: 5,
     },
     style: {
-        modelFont: 'inherit', userFont: 'inherit', modelSize: 17, userSize: 17,
+        modelFont: 'inherit', userFont: 'inherit', modelCustomFont: '', userCustomFont: '', modelSize: 17, userSize: 17,
         modelColor: '#eae5e0', userColor: '#e7d8f7', lineHeight: 1.55,
         cardBorder: 'none', cardBorderWidth: 1, cardBorderColor: '#8876a8',
         cardRadius: 12, cardAlpha: 0, cardColor: '#25212d', cardPadding: 10,
@@ -442,6 +448,7 @@ function normalize(raw, includeProfiles = true) {
     const s=raw.style||{};
     const d=data.style;
     for (const k of ['modelFont','userFont']) if (FONTS.includes(s[k]) || data.fonts.some(f=>f.id===s[k])) d[k]=s[k];
+    for(const k of ['modelCustomFont','userCustomFont'])d[k]=sanitizeFontFamily(s[k]);
     for (const k of ['modelColor', 'userColor', 'cardBorderColor', 'cardColor', 'avatarBorderColor', 'chatColor', 'iconColor', 'cardShadowColor', 'cardGradientColor']) d[k] = safeColor(s[k], d[k]);
     for (const [k, min, max] of [
         ['modelSize', 12, 40], ['userSize', 12, 40], ['lineHeight', 1.1, 2.5],
@@ -810,7 +817,8 @@ function styleVariables(s) {
    deep:'0 7px 19px #000a',glow:`0 0 14px ${hexRgba(s.avatarBorderColor,.8)}`
  }[s.avatarShadow] || 'none';
  return {
-  '--stui-model-font':fontStack(s.modelFont),'--stui-user-font':fontStack(s.userFont),
+  '--stui-model-font':chosenFontFamily(s.modelCustomFont,s.modelFont),
+  '--stui-user-font':chosenFontFamily(s.userCustomFont,s.userFont),
   '--stui-model-size':`${s.modelSize}px`,'--stui-user-size':`${s.userSize}px`,
   '--stui-model-weight':String(s.modelWeight),'--stui-user-weight':String(s.userWeight),
   '--stui-model-style':s.modelItalic?'italic':'normal',
@@ -875,6 +883,10 @@ function field(label, key, type, options = {}) {
         return `<div class="stui-field">${name}<select id="${id}" data-field="${key}">${options.values.map(([v, l]) => `<option value="${v}" ${value === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>`;
     }
     if (type === 'checkbox') return `<label class="stui-field stui-check"><span>${label}</span><input id="${id}" type="checkbox" data-field="${key}" ${value ? 'checked' : ''}></label>`;
+    if (type === 'fontName') {
+        const safe=String(value??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+        return `<div class="stui-field">${name}<input type="text" id="${id}" data-field="${key}" maxlength="160" autocomplete="off" spellcheck="false" value="${safe}" placeholder="Например: Cormorant Garamond, Georgia, serif"></div>`;
+    }
     if (type === 'range') return `<div class="stui-field">${name}<div class="stui-range"><input id="${id}" type="range" min="${options.min}" max="${options.max}" step="${options.step || 1}" value="${value}" data-field="${key}"><output for="${id}">${value}${options.unit || ''}</output></div></div>`;
     return `<div class="stui-field">${name}<input id="${id}" type="color" value="${value}" data-field="${key}"></div>`;
 }
@@ -904,6 +916,7 @@ function renderTab() {
         case 'text':
             html = `<h3>Ответы модели</h3>
               ${field('Шрифт модели','style.modelFont','select',{values:fontOptions})}
+              ${field('Своё название шрифта модели','style.modelCustomFont','fontName')}
               ${field('Размер текста модели','style.modelSize','range',{min:12,max:40,unit:' px'})}
               ${field('Насыщенность модели','style.modelWeight','range',{min:100,max:900,step:100})}
               ${field('Курсив модели','style.modelItalic','checkbox')}
@@ -912,6 +925,7 @@ function renderTab() {
               ${field('Цвет текста модели','style.modelColor','color')}
               <h3>Мои сообщения</h3>
               ${field('Мой шрифт','style.userFont','select',{values:fontOptions})}
+              ${field('Своё название моего шрифта','style.userCustomFont','fontName')}
               ${field('Мой размер текста','style.userSize','range',{min:12,max:40,unit:' px'})}
               ${field('Моя насыщенность','style.userWeight','range',{min:100,max:900,step:100})}
               ${field('Мой курсив','style.userItalic','checkbox')}
@@ -920,7 +934,8 @@ function renderTab() {
               ${field('Мой цвет текста','style.userColor','color')}
               <h3>Общее</h3>
               ${field('Межстрочный интервал','style.lineHeight','range',{min:1.1,max:2.5,step:.05})}
-              <p class="stui-hint">Онлайн-шрифты требуют интернета. Для работы без сети добавь свой файл шрифта из телефона.</p>
+              <p class="stui-hint">Введённое название имеет приоритет над списком. Шрифт будет показан, если он уже доступен браузеру (например, подключён темой или установлен на телефоне). Если нет — браузер покажет запасной. Очисти поле, чтобы вернуться к списку.</p>
+              <p class="stui-hint">Для работы без сети можно также импортировать файл шрифта из телефона.</p>
               <h3>Мои шрифты · офлайн</h3>
               <p>Файлы TTF, OTF, WOFF, WOFF2; до трёх шрифтов по 620 КБ. После сохранения они работают без интернета на этом устройстве.</p>
               <label class="stui-upload-button stui-deco-upload">Добавить шрифт
@@ -1020,6 +1035,10 @@ function bindStudio() {
         // A deliberate toggle in Theme Studio unlocks toolbar hiding for future visits.
         if (section === 'navigation' && name === 'hideTopBar' && input.checked) settings.navigation.hideTopBarConfirmed = true;
         settings[section][name] = input.type === 'checkbox' ? input.checked : input.type === 'range' ? Number(input.value) : input.value;
+        if(section==='style' && (name==='modelCustomFont'||name==='userCustomFont')) {
+           input.setCustomValidity(input.value.trim() && !sanitizeFontFamily(input.value)
+             ? 'Укажи только название шрифта, не полный CSS-код':'');
+        }
         if (section === 'style' && name === 'avatarShape' && AVATAR_PRESETS[input.value]) {
             const [width, height] = AVATAR_PRESETS[input.value];
             settings.style.avatarWidth = width;
