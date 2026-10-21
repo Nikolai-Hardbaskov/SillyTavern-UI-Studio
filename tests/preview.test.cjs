@@ -33,7 +33,7 @@ assert.match(css, /#stui-preview-chat[\s\S]*?max-height/);
 for (const variable of [
     '--stui-model-font', '--stui-user-font', '--stui-model-size', '--stui-user-size',
     '--stui-card-border', '--stui-card-radius', '--stui-card-padding', '--stui-card-color',
-    '--stui-avatar-size', '--stui-avatar-radius', '--stui-avatar-border', '--stui-chat-overlay',
+    '--stui-avatar-width', '--stui-avatar-height', '--stui-avatar-radius', '--stui-avatar-border', '--stui-chat-overlay',
 ]) assert.ok(css.includes(`var(${variable}`), `Live preview uses ${variable}`);
 
 console.log('Theme Studio live preview render and styling checks passed.');

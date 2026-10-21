@@ -285,18 +285,20 @@ body.stui-active #stui-preview .stui-preview-message {
     padding: var(--stui-card-padding, 10px);
     border: var(--stui-card-border, none);
     border-radius: var(--stui-card-radius, 12px);
-    background-color: var(--stui-card-color, transparent);
+    background: var(--stui-card-background, var(--stui-card-color, transparent));
+    box-shadow: var(--stui-card-shadow, none);
 }
 body.stui-active #stui-preview .stui-preview-message:last-child { margin-bottom: 0; }
 body.stui-active #stui-preview .stui-preview-avatar {
     display: grid;
     place-items: center;
-    flex: 0 0 var(--stui-avatar-size, 44px);
-    width: var(--stui-avatar-size, 44px);
-    height: var(--stui-avatar-size, 44px);
+    flex: 0 0 auto;
+    width: var(--stui-avatar-width, 44px);
+    height: var(--stui-avatar-height, 44px);
     box-sizing: border-box;
     border: var(--stui-avatar-border, 0 solid transparent);
     border-radius: var(--stui-avatar-radius, 50%);
+    box-shadow: var(--stui-avatar-shadow, none);
     background: #534362;
     color: #f7ecff;
     font: 600 12px system-ui, sans-serif;
@@ -315,12 +317,20 @@ body.stui-active #stui-preview .stui-preview-model .stui-preview-text {
     font-size: var(--stui-model-size, 17px);
     line-height: var(--stui-line-height, 1.55);
     color: var(--stui-model-color, #eae5e0);
+    font-weight: var(--stui-model-weight, 400);
+    font-style: var(--stui-model-style, normal);
+    letter-spacing: var(--stui-model-spacing, 0px);
+    text-align: var(--stui-model-align, left);
 }
 body.stui-active #stui-preview .stui-preview-user .stui-preview-text {
     font-family: var(--stui-user-font, inherit);
     font-size: var(--stui-user-size, 17px);
     line-height: var(--stui-line-height, 1.55);
     color: var(--stui-user-color, #e7d8f7);
+    font-weight: var(--stui-user-weight, 400);
+    font-style: var(--stui-user-style, normal);
+    letter-spacing: var(--stui-user-spacing, 0px);
+    text-align: var(--stui-user-align, left);
 }
 body.stui-active #stui-preview[data-stui-avatar-position^="top-"] .stui-preview-message { flex-direction: column; }
 body.stui-active #stui-preview[data-stui-avatar-position="top-center"] .stui-preview-avatar { align-self: center; }
@@ -427,7 +437,8 @@ body.stui-active #chat .mes:not([is_system="true"]) {
     padding: var(--stui-card-padding, 10px) !important;
     border: var(--stui-card-border, none) !important;
     border-radius: var(--stui-card-radius, 12px) !important;
-    background-color: var(--stui-card-color, transparent) !important;
+    background: var(--stui-card-background, var(--stui-card-color, transparent)) !important;
+    box-shadow: var(--stui-card-shadow, none) !important;
 }
 body.stui-active #chat .mes[is_user="false"] .mes_text,
 body.stui-active #chat .mes[is_user="false"] .mes_text p {
@@ -435,6 +446,10 @@ body.stui-active #chat .mes[is_user="false"] .mes_text p {
     font-size: var(--stui-model-size, 17px) !important;
     color: var(--stui-model-color, inherit);
     line-height: var(--stui-line-height, 1.55) !important;
+    font-weight: var(--stui-model-weight, 400) !important;
+    font-style: var(--stui-model-style, normal) !important;
+    letter-spacing: var(--stui-model-spacing, 0px) !important;
+    text-align: var(--stui-model-align, left) !important;
 }
 body.stui-active #chat .mes[is_user="true"] .mes_text,
 body.stui-active #chat .mes[is_user="true"] .mes_text p {
@@ -442,17 +457,22 @@ body.stui-active #chat .mes[is_user="true"] .mes_text p {
     font-size: var(--stui-user-size, 17px) !important;
     color: var(--stui-user-color, inherit);
     line-height: var(--stui-line-height, 1.55) !important;
+    font-weight: var(--stui-user-weight, 400) !important;
+    font-style: var(--stui-user-style, normal) !important;
+    letter-spacing: var(--stui-user-spacing, 0px) !important;
+    text-align: var(--stui-user-align, left) !important;
 }
 body.stui-active #chat .mes:not([is_system="true"]) .avatar,
 body.stui-active #chat .mes:not([is_system="true"]) .avatar img {
     box-sizing: border-box;
     flex: 0 0 auto;
-    width: var(--stui-avatar-size, 44px) !important;
-    height: var(--stui-avatar-size, 44px) !important;
+    width: var(--stui-avatar-width, 44px) !important;
+    height: var(--stui-avatar-height, 44px) !important;
     border-radius: var(--stui-avatar-radius, 50%) !important;
 }
 body.stui-active #chat .mes:not([is_system="true"]) .avatar img {
     border: var(--stui-avatar-border, none) !important;
+    box-shadow: var(--stui-avatar-shadow, none) !important;
     object-fit: cover;
 }
 body.stui-active[data-stui-avatar-position="top-center"] #chat .mes:not([is_system="true"]),

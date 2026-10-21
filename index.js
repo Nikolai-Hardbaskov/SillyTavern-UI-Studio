@@ -208,7 +208,51 @@ const GALLERY = [
         "url": "https://openclipart.org/image/400px/261134"
     }
 ];
-const FONTS = ['inherit', 'system-ui', 'Arial', 'Georgia', 'Verdana', 'Trebuchet MS', 'Times New Roman', 'Courier New', 'Tahoma', 'serif', 'sans-serif', 'monospace'];
+
+const GOOGLE_FONTS = ["Roboto","Open Sans","Inter","Montserrat","Lora","Playfair Display","PT Sans","PT Serif","Noto Sans","Noto Serif","Rubik","Manrope","Nunito","Comfortaa","Caveat","Lobster","Pacifico","Oswald","Merriweather","Raleway","Ubuntu","IBM Plex Sans","IBM Plex Serif","Fira Sans","Jost","Exo 2","Alegreya","Alice","Bad Script","Marck Script","Russo One","Cormorant Garamond","Yanone Kaffeesatz","Tenor Sans"];
+const FONTS = ["inherit","system-ui","Arial","Georgia","Verdana","Trebuchet MS","Times New Roman","Courier New","Tahoma","serif","sans-serif","monospace","Roboto","Open Sans","Inter","Montserrat","Lora","Playfair Display","PT Sans","PT Serif","Noto Sans","Noto Serif","Rubik","Manrope","Nunito","Comfortaa","Caveat","Lobster","Pacifico","Oswald","Merriweather","Raleway","Ubuntu","IBM Plex Sans","IBM Plex Serif","Fira Sans","Jost","Exo 2","Alegreya","Alice","Bad Script","Marck Script","Russo One","Cormorant Garamond","Yanone Kaffeesatz","Tenor Sans"];
+const AVATAR_SHAPES = [
+ ['circle','Круг'],['oval-wide','Горизонтальный овал'],['oval-tall','Вертикальный овал'],
+ ['square','Квадрат'],['rounded','Скруглённый квадрат'],['squircle','Мягкий квадрат'],
+ ['rectangle','Прямоугольник'],['rounded-rectangle','Скруглённый прямоугольник'],
+ ['portrait','Вертикальный прямоугольник'],['rounded-portrait','Скруглённый вертикальный'],
+ ['capsule','Горизонтальная капсула'],['vertical-pill','Вертикальная капсула'],
+ ['arch','Арка'],['leaf','Лепесток'],['asymmetric','Асимметричная'],['custom','Своя форма']
+];
+const AVATAR_PRESETS = {
+ circle:[60,60],'oval-wide':[104,62],'oval-tall':[62,104],square:[68,68],
+ rounded:[68,68],squircle:[68,68],rectangle:[112,64],'rounded-rectangle':[112,64],
+ portrait:[64,100],'rounded-portrait':[64,100],capsule:[112,56],
+ 'vertical-pill':[56,108],arch:[70,96],leaf:[82,82],asymmetric:[84,76]
+};
+const AVATAR_RADII = {
+ circle:'50%','oval-wide':'50%','oval-tall':'50%',square:'0',
+ rounded:'16px',squircle:'38%',rectangle:'0','rounded-rectangle':'16px',
+ portrait:'0','rounded-portrait':'16px',capsule:'999px','vertical-pill':'999px',
+ arch:'50% 50% 9px 9px / 40% 40% 9px 9px',
+ leaf:'75% 4% 70% 6% / 70% 8% 75% 10%',
+ asymmetric:'29% 8% 25% 12% / 30% 20% 38% 12%'
+};
+const FONT_SERIF = new Set(['serif','Georgia','Times New Roman','Noto Serif','PT Serif','Lora','Playfair Display','Merriweather','IBM Plex Serif','Alegreya','Alice','Cormorant Garamond','Tenor Sans']);
+const FONT_SCRIPT = new Set(['Caveat','Lobster','Pacifico','Bad Script','Marck Script']);
+const loadedFonts = new Set();
+function fontStack(name) {
+ if (name === 'inherit') return 'inherit';
+ if (!FONTS.includes(name)) return 'inherit';
+ if (['system-ui','serif','sans-serif','monospace'].includes(name)) return name;
+ const fallback = FONT_SCRIPT.has(name) ? 'cursive' : FONT_SERIF.has(name) ? 'serif' : 'sans-serif';
+ return `"${name}", ${fallback}`;
+}
+function ensureFontLoaded(name) {
+ if (!GOOGLE_FONTS.includes(name) || loadedFonts.has(name)) return;
+ loadedFonts.add(name);
+ const link = document.createElement('link');
+ link.rel = 'stylesheet';
+ link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(name)}&display=swap`;
+ link.dataset.stuiFont = name;
+ document.head.append(link);
+}
+
 const NAV_META = {
     'ai-config-button': ['Chat Completion Presets', 'fa-sliders'],
     'sys-settings-button': ['API', 'fa-plug'],
@@ -232,8 +276,17 @@ const DEFAULTS = {
         modelColor: '#eae5e0', userColor: '#e7d8f7', lineHeight: 1.55,
         cardBorder: 'none', cardBorderWidth: 1, cardBorderColor: '#8876a8',
         cardRadius: 12, cardAlpha: 0, cardColor: '#25212d', cardPadding: 10,
-        avatarSize: 44, avatarShape: 'circle', avatarPosition: 'side',
-        avatarBorderWidth: 0, avatarBorderColor: '#c2a7e8',
+        avatarSize: 44, avatarWidth: 44, avatarHeight: 44,
+        avatarShape: 'circle', avatarPosition: 'side',
+        avatarCornerTL: 16, avatarCornerTR: 16, avatarCornerBR: 16, avatarCornerBL: 16,
+        avatarBorderWidth: 0, avatarBorderStyle: 'solid',
+        avatarBorderColor: '#c2a7e8', avatarShadow: 'none',
+        modelWeight: 400, userWeight: 400,
+        modelItalic: false, userItalic: false,
+        modelLetterSpacing: 0, userLetterSpacing: 0,
+        modelAlign: 'left', userAlign: 'left',
+        cardShadow: 'none', cardShadowColor: '#000000',
+        cardGradient: 'none', cardGradientColor: '#70578c',
         chatColor: '#17151e', chatAlpha: 0,
         iconColor: '#dac9f5', iconSize: 19,
     },
@@ -355,16 +408,30 @@ function normalize(raw, includeProfiles = true) {
     const s = raw.style || {};
     const d = data.style;
     for (const k of ['modelFont', 'userFont']) if (FONTS.includes(s[k])) d[k] = s[k];
-    for (const k of ['modelColor', 'userColor', 'cardBorderColor', 'cardColor', 'avatarBorderColor', 'chatColor', 'iconColor']) d[k] = safeColor(s[k], d[k]);
+    for (const k of ['modelColor', 'userColor', 'cardBorderColor', 'cardColor', 'avatarBorderColor', 'chatColor', 'iconColor', 'cardShadowColor', 'cardGradientColor']) d[k] = safeColor(s[k], d[k]);
     for (const [k, min, max] of [
-        ['modelSize', 12, 32], ['userSize', 12, 32], ['lineHeight', 1.1, 2.5],
-        ['cardBorderWidth', 0, 6], ['cardRadius', 0, 36], ['cardAlpha', 0, 1],
-        ['cardPadding', 0, 30], ['avatarSize', 24, 120], ['avatarBorderWidth', 0, 6],
+        ['modelSize', 12, 40], ['userSize', 12, 40], ['lineHeight', 1.1, 2.5],
+        ['cardBorderWidth', 0, 6], ['cardRadius', 0, 64], ['cardAlpha', 0, 1],
+        ['cardPadding', 0, 36], ['avatarSize', 24, 150], ['avatarBorderWidth', 0, 12],
+        ['avatarWidth', 32, 180], ['avatarHeight', 32, 180],
+        ['avatarCornerTL', 0, 90], ['avatarCornerTR', 0, 90],
+        ['avatarCornerBR', 0, 90], ['avatarCornerBL', 0, 90],
+        ['modelLetterSpacing', -2, 10], ['userLetterSpacing', -2, 10],
+        ['modelWeight', 100, 900], ['userWeight', 100, 900],
         ['chatAlpha', 0, 1], ['iconSize', 14, 34],
     ]) d[k] = clamp(s[k], min, max, d[k]);
-    if (['none', 'solid', 'dashed', 'double'].includes(s.cardBorder)) d.cardBorder = s.cardBorder;
-    if (['circle', 'rounded', 'square'].includes(s.avatarShape)) d.avatarShape = s.avatarShape;
-    if (['side', 'top-center', 'top-left'].includes(s.avatarPosition)) d.avatarPosition = s.avatarPosition;
+    // Existing themes had a single avatarSize. Upgrade them without losing that size.
+    if (s.avatarWidth == null) d.avatarWidth = clamp(s.avatarSize, 32, 180, d.avatarWidth);
+    if (s.avatarHeight == null) d.avatarHeight = clamp(s.avatarSize, 32, 180, d.avatarHeight);
+    if (['none','solid','dashed','dotted','double','groove','ridge','inset','outset'].includes(s.cardBorder)) d.cardBorder = s.cardBorder;
+    if (AVATAR_SHAPES.some(([id]) => id === s.avatarShape)) d.avatarShape = s.avatarShape;
+    if (['none','solid','dashed','dotted','double'].includes(s.avatarBorderStyle)) d.avatarBorderStyle = s.avatarBorderStyle;
+    if (['none','soft','deep','glow'].includes(s.avatarShadow)) d.avatarShadow = s.avatarShadow;
+    if (['none','soft','deep','glow'].includes(s.cardShadow)) d.cardShadow = s.cardShadow;
+    if (['none','vertical','diagonal','radial'].includes(s.cardGradient)) d.cardGradient = s.cardGradient;
+    for (const k of ['modelItalic','userItalic']) d[k] = s[k] === true;
+    for (const k of ['modelAlign','userAlign']) if (['left','center','right','justify'].includes(s[k])) d[k] = s[k];
+    if (['side','top-center','top-left'].includes(s.avatarPosition)) d.avatarPosition = s.avatarPosition;
     data.icons = cleanIcons(raw.icons);
     data.decorations = cleanDecorations(raw.decorations);
     if (includeProfiles && raw.profiles && typeof raw.profiles === 'object' && !Array.isArray(raw.profiles)) {
@@ -690,25 +757,51 @@ function bindTriggerDrag() {
 }
 
 function styleVariables(s) {
-    return {
-        '--stui-model-font': s.modelFont === 'inherit' ? 'inherit' : `"${s.modelFont}"`,
-        '--stui-user-font': s.userFont === 'inherit' ? 'inherit' : `"${s.userFont}"`,
-        '--stui-model-size': `${s.modelSize}px`, '--stui-user-size': `${s.userSize}px`,
-        '--stui-model-color': s.modelColor, '--stui-user-color': s.userColor,
-        '--stui-line-height': String(s.lineHeight),
-        '--stui-card-border': s.cardBorder === 'none' ? 'none' : `${s.cardBorderWidth}px ${s.cardBorder} ${s.cardBorderColor}`,
-        '--stui-card-radius': `${s.cardRadius}px`,
-        '--stui-card-color': hexRgba(s.cardColor, s.cardAlpha),
-        '--stui-card-padding': `${s.cardPadding}px`,
-        '--stui-avatar-size': `${s.avatarSize}px`,
-        '--stui-avatar-radius': s.avatarShape === 'circle' ? '50%' : s.avatarShape === 'square' ? '0' : '14px',
-        '--stui-avatar-border': `${s.avatarBorderWidth}px solid ${s.avatarBorderColor}`,
-        '--stui-chat-overlay': hexRgba(s.chatColor, s.chatAlpha),
-        '--stui-icon-color': s.iconColor, '--stui-icon-size': `${s.iconSize}px`,
-    };
+ const radius = s.avatarShape === 'custom'
+   ? `${s.avatarCornerTL}px ${s.avatarCornerTR}px ${s.avatarCornerBR}px ${s.avatarCornerBL}px`
+   : (AVATAR_RADII[s.avatarShape] || '50%');
+ const c1 = hexRgba(s.cardColor,s.cardAlpha);
+ const c2 = hexRgba(s.cardGradientColor,s.cardAlpha);
+ const bg = s.cardGradient === 'vertical' ? `linear-gradient(to bottom,${c2},${c1})`
+   : s.cardGradient === 'diagonal' ? `linear-gradient(135deg,${c2},${c1})`
+   : s.cardGradient === 'radial' ? `radial-gradient(circle at top left,${c2},${c1})` : c1;
+ const shadow = {
+   none:'none',soft:`0 3px 14px ${hexRgba(s.cardShadowColor,.25)}`,
+   deep:`0 9px 25px ${hexRgba(s.cardShadowColor,.6)}`,
+   glow:`0 0 18px ${hexRgba(s.cardShadowColor,.7)}`
+ }[s.cardShadow] || 'none';
+ const avatarShadow = {
+   none:'none',soft:'0 3px 10px #0006',
+   deep:'0 7px 19px #000a',glow:`0 0 14px ${hexRgba(s.avatarBorderColor,.8)}`
+ }[s.avatarShadow] || 'none';
+ return {
+  '--stui-model-font':fontStack(s.modelFont),'--stui-user-font':fontStack(s.userFont),
+  '--stui-model-size':`${s.modelSize}px`,'--stui-user-size':`${s.userSize}px`,
+  '--stui-model-weight':String(s.modelWeight),'--stui-user-weight':String(s.userWeight),
+  '--stui-model-style':s.modelItalic?'italic':'normal',
+  '--stui-user-style':s.userItalic?'italic':'normal',
+  '--stui-model-spacing':`${s.modelLetterSpacing}px`,
+  '--stui-user-spacing':`${s.userLetterSpacing}px`,
+  '--stui-model-align':s.modelAlign,'--stui-user-align':s.userAlign,
+  '--stui-model-color':s.modelColor,'--stui-user-color':s.userColor,
+  '--stui-line-height':String(s.lineHeight),
+  '--stui-card-border':s.cardBorder==='none'?'none':`${s.cardBorderWidth}px ${s.cardBorder} ${s.cardBorderColor}`,
+  '--stui-card-radius':`${s.cardRadius}px`,
+  '--stui-card-color':c1,'--stui-card-background':bg,'--stui-card-shadow':shadow,
+  '--stui-card-padding':`${s.cardPadding}px`,
+  '--stui-avatar-size':`${s.avatarSize}px`,
+  '--stui-avatar-width':`${s.avatarWidth}px`,'--stui-avatar-height':`${s.avatarHeight}px`,
+  '--stui-avatar-radius':radius,
+  '--stui-avatar-border':`${s.avatarBorderWidth}px ${s.avatarBorderStyle} ${s.avatarBorderColor}`,
+  '--stui-avatar-shadow':avatarShadow,
+  '--stui-chat-overlay':hexRgba(s.chatColor,s.chatAlpha),
+  '--stui-icon-color':s.iconColor,'--stui-icon-size':`${s.iconSize}px`
+ };
 }
 function renderDraftPreview() {
     if (!elements.preview) return;
+    ensureFontLoaded(settings.style.modelFont);
+    ensureFontLoaded(settings.style.userFont);
     for (const [name, value] of Object.entries(styleVariables(settings.style))) {
         elements.preview.style.setProperty(name, value);
     }
@@ -716,6 +809,8 @@ function renderDraftPreview() {
 }
 function applyTheme() {
     if (!settings) return;
+    ensureFontLoaded(settings.style.modelFont);
+    ensureFontLoaded(settings.style.userFont);
     const root = document.documentElement;
     const s = settings.style;
     for (const [name, value] of Object.entries(styleVariables(s))) root.style.setProperty(name, value);
@@ -769,16 +864,61 @@ function renderTab() {
     let html = '';
     switch (chosenTab) {
         case 'text':
-            html = `<h3>Ответы модели</h3>${field('Шрифт модели', 'style.modelFont', 'select', {values: fontOptions})}${field('Размер текста', 'style.modelSize', 'range', {min:12,max:32,unit:' px'})}${field('Цвет текста', 'style.modelColor', 'color')}
-              <h3>Мои сообщения</h3>${field('Мой шрифт', 'style.userFont', 'select', {values: fontOptions})}${field('Мой размер текста', 'style.userSize', 'range', {min:12,max:32,unit:' px'})}${field('Мой цвет текста', 'style.userColor', 'color')}
-              <h3>Общее</h3>${field('Межстрочный интервал', 'style.lineHeight', 'range', {min:1.1,max:2.5,step:.05})}`;
+            html = `<h3>Ответы модели</h3>
+              ${field('Шрифт модели','style.modelFont','select',{values:fontOptions})}
+              ${field('Размер текста модели','style.modelSize','range',{min:12,max:40,unit:' px'})}
+              ${field('Насыщенность модели','style.modelWeight','range',{min:100,max:900,step:100})}
+              ${field('Курсив модели','style.modelItalic','checkbox')}
+              ${field('Расстояние между буквами модели','style.modelLetterSpacing','range',{min:-2,max:10,step:.25,unit:' px'})}
+              ${field('Выравнивание модели','style.modelAlign','select',{values:[['left','Слева'],['center','По центру'],['right','Справа'],['justify','По ширине']]})}
+              ${field('Цвет текста модели','style.modelColor','color')}
+              <h3>Мои сообщения</h3>
+              ${field('Мой шрифт','style.userFont','select',{values:fontOptions})}
+              ${field('Мой размер текста','style.userSize','range',{min:12,max:40,unit:' px'})}
+              ${field('Моя насыщенность','style.userWeight','range',{min:100,max:900,step:100})}
+              ${field('Мой курсив','style.userItalic','checkbox')}
+              ${field('Моё расстояние между буквами','style.userLetterSpacing','range',{min:-2,max:10,step:.25,unit:' px'})}
+              ${field('Моё выравнивание','style.userAlign','select',{values:[['left','Слева'],['center','По центру'],['right','Справа'],['justify','По ширине']]})}
+              ${field('Мой цвет текста','style.userColor','color')}
+              <h3>Общее</h3>
+              ${field('Межстрочный интервал','style.lineHeight','range',{min:1.1,max:2.5,step:.05})}
+              <p class="stui-hint">Дополнительные шрифты загружаются при выборе через Google Fonts. Без интернета используется запасной шрифт.</p>`;
             break;
         case 'messages':
-            html = `<h3>Карточки сообщений</h3>${field('Рамка', 'style.cardBorder', 'select', {values:[['none','Нет'],['solid','Сплошная'],['dashed','Пунктир'],['double','Двойная']]})}${field('Толщина рамки', 'style.cardBorderWidth', 'range', {min:0,max:6,unit:' px'})}${field('Цвет рамки', 'style.cardBorderColor', 'color')}${field('Закругление углов', 'style.cardRadius', 'range', {min:0,max:36,unit:' px'})}${field('Отступы внутри', 'style.cardPadding', 'range', {min:0,max:30,unit:' px'})}
-              <h3>Подложка текста</h3>${field('Цвет карточки', 'style.cardColor', 'color')}${field('Непрозрачность карточки', 'style.cardAlpha', 'range', {min:0,max:1,step:.05})}${field('Цвет фона чата', 'style.chatColor', 'color')}${field('Непрозрачность подложки чата', 'style.chatAlpha', 'range', {min:0,max:1,step:.05})}`;
+            html = `<h3>Карточки сообщений</h3>
+              ${field('Рамка','style.cardBorder','select',{values:[['none','Нет'],['solid','Сплошная'],['dashed','Пунктир'],['dotted','Точки'],['double','Двойная'],['groove','Рельеф внутрь'],['ridge','Рельеф наружу'],['inset','Вдавленная'],['outset','Выступающая']]})}
+              ${field('Толщина рамки','style.cardBorderWidth','range',{min:0,max:6,unit:' px'})}
+              ${field('Цвет рамки','style.cardBorderColor','color')}
+              ${field('Закругление углов','style.cardRadius','range',{min:0,max:64,unit:' px'})}
+              ${field('Отступы внутри','style.cardPadding','range',{min:0,max:36,unit:' px'})}
+              <h3>Тень и свечение</h3>
+              ${field('Тень карточки','style.cardShadow','select',{values:[['none','Нет'],['soft','Лёгкая'],['deep','Глубокая'],['glow','Свечение']]})}
+              ${field('Цвет тени','style.cardShadowColor','color')}
+              <h3>Подложка текста</h3>
+              ${field('Цвет карточки','style.cardColor','color')}
+              ${field('Непрозрачность карточки','style.cardAlpha','range',{min:0,max:1,step:.05})}
+              ${field('Градиент','style.cardGradient','select',{values:[['none','Нет'],['vertical','Сверху вниз'],['diagonal','По диагонали'],['radial','Радиальный']]})}
+              ${field('Второй цвет градиента','style.cardGradientColor','color')}
+              ${field('Цвет фона чата','style.chatColor','color')}
+              ${field('Непрозрачность подложки чата','style.chatAlpha','range',{min:0,max:1,step:.05})}`;
             break;
         case 'avatars':
-            html = `<h3>Аватарки в переписке</h3>${field('Размер', 'style.avatarSize', 'range', {min:24,max:120,unit:' px'})}${field('Форма', 'style.avatarShape', 'select', {values:[['circle','Круг'],['rounded','Скруглённый квадрат'],['square','Квадрат']]})}${field('Расположение', 'style.avatarPosition', 'select', {values:[['side','Сбоку'],['top-center','Над текстом, по центру'],['top-left','Над текстом, слева']]})}${field('Толщина рамки', 'style.avatarBorderWidth', 'range', {min:0,max:6,unit:' px'})}${field('Цвет рамки', 'style.avatarBorderColor', 'color')}`;
+            html = `<h3>Форма и пропорции аватарок</h3>
+              ${field('Форма','style.avatarShape','select',{values:AVATAR_SHAPES})}
+              ${field('Ширина аватарки','style.avatarWidth','range',{min:32,max:180,unit:' px'})}
+              ${field('Высота аватарки','style.avatarHeight','range',{min:32,max:180,unit:' px'})}
+              ${field('Расположение','style.avatarPosition','select',{values:[['side','Сбоку'],['top-center','Над текстом, по центру'],['top-left','Над текстом, слева']]})}
+              <h3>Своя форма: углы</h3>
+              <p class="stui-hint">Выбери «Своя форма», чтобы отдельно настроить четыре угла.</p>
+              ${field('Верхний левый угол','style.avatarCornerTL','range',{min:0,max:90,unit:' px'})}
+              ${field('Верхний правый угол','style.avatarCornerTR','range',{min:0,max:90,unit:' px'})}
+              ${field('Нижний правый угол','style.avatarCornerBR','range',{min:0,max:90,unit:' px'})}
+              ${field('Нижний левый угол','style.avatarCornerBL','range',{min:0,max:90,unit:' px'})}
+              <h3>Рамка и тень</h3>
+              ${field('Толщина рамки','style.avatarBorderWidth','range',{min:0,max:12,unit:' px'})}
+              ${field('Тип рамки','style.avatarBorderStyle','select',{values:[['solid','Сплошная'],['dashed','Пунктирная'],['dotted','Точечная'],['double','Двойная'],['none','Без рамки']]})}
+              ${field('Цвет рамки','style.avatarBorderColor','color')}
+              ${field('Тень аватарки','style.avatarShadow','select',{values:[['none','Нет'],['soft','Лёгкая'],['deep','Глубокая'],['glow','Свечение']]})}`;
             break;
         case 'icons':
             html = `<h3>Значки меню</h3><p>Меняй стандартные значки выдвижного меню. Можно выбрать встроенную иконку или загрузить PNG/JPEG/WebP/GIF (до 90 КБ).</p><div id="stui-icon-rows"></div><h3>Цвет и размер</h3>${field('Цвет обычных значков', 'style.iconColor', 'color')}${field('Размер значков', 'style.iconSize', 'range', {min:14,max:34,unit:' px'})}<p class="stui-hint">В этой версии заменяются значки левого меню, а не все внутренние кнопки SillyTavern.</p>`;
@@ -836,8 +976,21 @@ function bindStudio() {
         // A deliberate toggle in Theme Studio unlocks toolbar hiding for future visits.
         if (section === 'navigation' && name === 'hideTopBar' && input.checked) settings.navigation.hideTopBarConfirmed = true;
         settings[section][name] = input.type === 'checkbox' ? input.checked : input.type === 'range' ? Number(input.value) : input.value;
+        if (section === 'style' && name === 'avatarShape' && AVATAR_PRESETS[input.value]) {
+            const [width, height] = AVATAR_PRESETS[input.value];
+            settings.style.avatarWidth = width;
+            settings.style.avatarHeight = height;
+            for (const [prop,val] of [['avatarWidth',width],['avatarHeight',height]]) {
+                const slider = elements.tabContent.querySelector(`[data-field="style.${prop}"]`);
+                if (slider) {
+                    slider.value = String(val);
+                    const out = slider.parentElement.querySelector('output');
+                    if (out) out.textContent = `${val} px`;
+                }
+            }
+        }
         const output = elements.tabContent.querySelector(`output[for="${input.id}"]`);
-        if (output) output.textContent = `${input.value}${input.dataset.field === 'navigation.triggerTop' ? ' %' : name === 'fadeDelay' ? ' с' : ['modelSize','userSize','cardBorderWidth','cardRadius','cardPadding','avatarSize','avatarBorderWidth','iconSize','triggerWidth','triggerHeight'].includes(name) ? ' px' : ''}`;
+        if (output) output.textContent = `${input.value}${input.dataset.field === 'navigation.triggerTop' ? ' %' : name === 'fadeDelay' ? ' с' : ['modelSize','userSize','cardBorderWidth','cardRadius','cardPadding','avatarSize','avatarBorderWidth','iconSize','triggerWidth','triggerHeight','avatarWidth','avatarHeight','avatarCornerTL','avatarCornerTR','avatarCornerBR','avatarCornerBL','modelLetterSpacing','userLetterSpacing'].includes(name) ? ' px' : ''}`;
         stageSettings();
     });
     elements.tabContent.addEventListener('keydown', event => {
